@@ -24,7 +24,7 @@ Each message is a request or a response. Client forms and sends requests to the 
 
 HTTP semantics include request methods, header fields, response status codes, resource metadata and whatever else.
 
-### 1.4. Specifications Obsolete byy This Document
+### 1.4. Specifications Obsoleted by This Document
 
 I don't care
 
@@ -672,4 +672,274 @@ All responses, regardless of the status code, can be send at any time after a re
 
 ### 7.6. Message Forwarding
 
+Intermediaries are expected to forward messages even when protocol elements are not recognized
 
+An intermediary not acting as a tunnel MUST implement the connection header field, and exclude fields from being forwarded that are only intended for the incoming connection
+
+An intermediary MUST NOT forward a message to itself, unless it can somehow prevent an infinite loop
+
+#### 7.6.1. Connection
+
+Connection header specifies control options desired by the sender for the current connection. This is case-insensitive
+
+```
+Connection          ::= connection-option#
+connection-option   ::= token
+```
+
+When a  field that's not Connection supplies control information for a connection, the sender MUST list that field name within the Connection header field. Some version of HTTP do not allow the Connection field
+
+Intermediaries MUST parse a received Connection header field before forwarding, and remove any header/trailer field listed in Connection, including itself (or replace the Connection with something of its own)
+
+Intermediaries SHOULD remove or replace fields that are known to require removal regardless. Some of these are:
+
+- Proxy-Connection
+- Keep-Alive
+- TE
+- Transfer-Encoding
+- Upgrade
+
+A sender MUST NOT send a connection option that is indented for all recipients of the content.
+
+Connection options may not be actual fields, since they are just tokens, and may not need a value. When defining such an option, you should still reserve the corresponding field name.
+
+#### 7.6.2. Max-Forwards
+
+A header for TRACE and OPTIONS request methods to limit the number of forwards by proxies. The value indicates remaining forwards
+
+```
+Max-Forwards ::= DIGIT+
+```
+
+Upon receiving a TRACE or OPTIONS request with this header, an intermediary MUST check and update its value before forwarding. If they value is 0, the intermediary MUST NOT forward the request, and instead it MUST respond as the final recipient. If it's greater than zero, the new value is max(Max-Forwards - 1, maxSupportedValueByTheRecipient)
+
+If the request isn't TRACE nor OPTIONS, a recipient MAY ignore it.
+
+#### 7.6.3. Via
+
+Via is used to indicate intermediate protocols and recipients.
+
+```
+Via                     ::= (received-protocol RWS received-by [ RWS comment ])#
+received-protocol       ::= [ protocol-name "/" ] protocol-version
+received-by             ::= pseudonym [ ":" port ]
+pseudonym               ::= token
+```
+
+Each member represents a proxy or gateway that has forwarded the message. Each intermediary appends it own information
+
+A proxy MUST send an appropriate Via header field in each message it forwards. An HTTP-to-HTTP gateway MUST send an appropriate Via header field in each inbound request message and MAY send a Via header field in response messages.
+
+Protocol-name is omitted when the received protocol is HTTP
+
+The received-by portion is normally the host and port, however, a sender MAY replace it with a pseudonym for any reason. If a port is not provided, the default port MAY be assumed, if received-protocol specifies one.
+
+A sender MAY generate comments, a recipient MAY remove them.
+
+An intermediary used as a portal through a network firewall SHOULD NOT forward the names and ports of hosts within the firewall region, unless explicitly enabled to do so. It SHOULD replace them by appropriate pseudonyms otherwise.
+
+An intermediary MAY combine contiguous members of a list in a single member, if the protocol and version are the same, for example
+
+```
+Via: 1.0 aaa, 1.1 bbb, 1.1 ccc, 1.0 ddd
+->
+Via: 1.0 aaa, 1.1 aux, 1.0 ddd
+```
+
+A sender SHOULD NOT combine list members unless they are under the same organizational control and use pseudonyms. A sender MUST NOT combine members with different protocols.
+
+### 7.7. Message Transformations
+
+An HTTP-to-HTTP proxy is called a "transforming proxy" if it modifies messages in a semantically meaningful way.
+
+If a proxy receives a target URI with a host name that is not a fully qualified domain name, it MAY add its own domain to the hest name it received when forwarding the request. If it is fully qualified, a proxy MUST NOT change it.
+
+A proxy MUST NOT modify the "absolute-path" and "query" of the targer URI, except as required by protocol (for example "" -> "/")
+
+A proxy MUST NOT transform the content of a response that contains a no-transform cache directive. Otherwise, it MAY transform it, this transformation may be indicating by changing 200 response code to 203
+
+A proxy SHOULD NOT modify header fields that provide information about the endpoints of the communication chain, the resource state, or the selected representation unless the field's definition allows such modification, or it is deemed necessary for privacy or security
+
+### 7.8. Upgrade
+
+Upgrade is used to transition from HTTP/1.1 to another protocol on the same connection
+
+A client MAY send a list of protocol names in order of descending preference. A server MAY ignore a received Upgrade header.
+
+```
+Upgrade             ::= protocol#
+protocol            ::= protocol-name [ "/" protocol-version ]
+protocol-name       ::= token
+protocol-version    ::= token
+```
+
+Recipients SHOULD use case-insensitive comparison for matching protocol-name
+
+A server that sends a 101 response MUST send an Upgrade header to indicate the new protocol(s). If multiple protocol layers are being switched, the sender MUST list the protocols in layer-ascending order. A server MUST NOT switch to a protocol that wasn't indicated by the client. A server MAY choose to ignore the order of preference.
+
+A server that sends a 426 response MUST send an Upgrade header, descending preference
+
+A server MAY send an Upgrade header in any other response to show available options, descending preference
+
+Immediately after sending a 101 response, the server is expected to continue responding in a new protocol, even to that same request.
+
+A server MUST NOT switch protocols unless the received message semantics can be honored by the new protocol (since the change occurs immediately to the same request). An OPTIONS request can be honored by any protocol.
+
+A sender of Upgrade MUST also send an "Upgrade" connection option in the Connection header field. A server receiving a HTTP/1.0 request MUST ignore the Upgrade header field.
+
+A client can only begin using an upgraded protocol after finishing sending the request. If a server receives both an Upgrade and an Expect "100-continue" headers, the server MUST send a 100 response before sending a 101 response
+
+The Upgrade header obviously cannot change the transport protocol, nor change the connection. For that one may use 3xx responses.
+
+This spec only defines the protocol name "HTTP" - other protocol names ought to be registered separately.
+
+## 8. Representation Data and Metadata
+
+### 8.1. Representation Data
+
+The representation data is in format and encoding defined by the header fields, namely, Content-Type and Content-Encoding
+
+```
+representation-data := Content-Encoding $ Content-Type data
+```
+
+### 8.2. Representation Metadata
+
+In a response to a HEAD request, the representation header fields describe the representation data that would've been responded to a GET request
+
+### 8.3. Content-Type
+
+Content-Type indicates the media type of the associated representation. This defines both the data format and how to process it.
+
+A sender that generates a message with content SHOULD generate a Content-Type header, unless the type is unknown to the sender. If Content-Type is not present, recipient MAY assume "application/octet-stream", or somehow determine the type.
+
+You should be careful when trying to decide the data type for yourself (especially when sniffing, and user should be able to disable sniffing, whatever that is)
+
+```
+Content-Type ::= media-type
+```
+
+#### 8.3.1. Media Type
+
+HTTP uses media types defined in RFC2046 (these are case-insensitive, but lowercase preferred)
+
+```
+media-type  ::= type "/" subtype parameters
+type        ::= token
+subtype     ::= token
+```
+
+Parameter values might or might not be case-sensitive, it's all very individual
+
+#### 8.3.2. Charset
+
+HTTP uses charset names defined in RFC6365, and are case-insensitive
+
+#### 8.3.3. Multipart Types
+
+A sender MUST generate only CRLF to represent line breaks between body parts
+
+### 8.4. Content-Encoding
+
+Primarily used to indicate compression or whatever
+
+```
+Content-Encoding ::= content-coding#
+```
+
+The sender that applied the encoding(s) MUST list them in the order in which they were applied. The coding named "identity" is reserved and SHOULD NOT be included.
+
+If the media type includes an inherent encoding, it is not restated in Content-Encoding (unless it is applied once more outside of the media type definition)
+
+An origin server MAY respond with 415 if a representation in the request has unacceptable coding.
+
+#### 8.4.1. Content Codings
+
+```
+content-coding ::= token
+```
+
+##### 8.4.1.1. Compress Coding
+
+"compress" - Lempel-Ziv-Welch (LZW) coding. A recipient SHOULD consider "x-compress" to be equivalent to "compress"
+
+##### 8.4.1.2. Deflate Coding
+
+The "deflate" coding is a "zlib" data format, uses a combination of LZ77 and Huffman coding
+
+##### 8.4.1.3. Gzip Coding
+
+"gzip" - LZ77 coding with a 32-bit Cyclic Redundancy Check. A recipient SHOULD consider "x-gzip" to be equivalent to "gzip"
+
+### 8.5. Content-Language
+
+Content-Language header field describes the natural language(s) of the intended audience (!) for the representation
+
+```
+Content-Language ::= language-tag#
+```
+
+If not specified, the content is intended for all language audiences, for any reason
+
+I will stress it again - Content-Language represents the target audience, not languages used in the representation.
+
+Content-Language MAY be applied to any media type
+
+#### 8.5.1. Language Tags
+
+Defined in RFC5646. Only languages that humans use, strictly not programming languages.
+
+```
+language-tag ::= // Language-Tag in RFC5646
+```
+
+### 8.6. Content-Length
+
+Content-Length header field indicates the octet length of representation's data in decimal. It can be used to delimit framing.
+
+```
+Content-Length ::= DIGIT+
+```
+
+A user agent SHOULD send Content-Length when the method defines a meaning for enclosed content and it is not sending Transfer-Encoding. For example, for a POST request a user sends Content-Length even if it is 0. A user agent SHOULD NOT send a Content-Length header if the request message isn't supposed to or doesn't have content.
+
+A server MAY send a Content-Length header in a response to a HEAD request. A server MUST NOT do so, if it wouldn't be equal for a response to a GET request.
+
+A server MAY send a Content-Length header field in a 304 response to a conditional GET request. It MUST NOT do so, unless this number would be equal in a 200 response
+
+A server MUST NOT send Content-Length for 1xx and 204 responses, or 2xx responses to a CONNECT request.
+
+Otherwise, if Transfer-Encoding is absent, an origin server SHOULD send a Content-Length header when the content size is known prior to sending.
+
+A recipient MUST anticipate large decimal numberals and prevent parsing errors.
+
+A sender MUST NOT forward a message if Content-Length is known/found to be incorrect.
+
+A sender MUST NOT forward a message if Content-Length does not match the grammar. A single exception - value of Content-Length is the same decimal number repeated multiple times with commas (as a list production). In that case, sender MAY either reject the message, or fix the field value.
+
+### 8.7. Content-Location
+
+Content-Location references a URI to retrieve the resource corresponding to the representation in the message's content.
+
+```
+Content-Location ::= absolute-URI
+                   | partial-URI // relative to the target URI
+```
+
+It is not a replacement for the target URI
+
+If Content-Location is included in a 2xx response and it is equivalent to the target URI, the recipient MAY consider the content to be a current representation of that resource. For GET or HEAD request this is nothing new. For PUT or POST it implies that the response contains the new representation.
+
+If Content-Location is included in a 2xx response, but it differs from target URI, then the origin server claims that the URI is an identifier to a different resource, whose representation is in the body.
+
+- For a response to a GET or HEAD request, this means that Content-Location is a more specific identifier for the selected representation
+- For a 201 response, such that Content-Location is identical to Location field value, this content is a current representation of the newly created resource
+- Otherwise, it is an identifier for the same resource
+
+A user agent that sends Content-Location in a request message is stating where it originally got that representation from.
+
+An origin server that receives a Content-Location MUST treat the information as transitory request context, rather than as metadata. An origin server MAY use that context for request processing or whatever. An origin server MUST NOT use such information to alter the request semantics.
+
+Example: if a client makes a PUT request, and the origin server accepts that PUT, the new state of the resource is expected to be with what was provided in the request. 
+
+### 8.8. Validator Fields
