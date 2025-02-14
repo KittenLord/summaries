@@ -943,3 +943,9 @@ An origin server that receives a Content-Location MUST treat the information as 
 Example: if a client makes a PUT request, and the origin server accepts that PUT, the new state of the resource is expected to be with what was provided in the request. 
 
 ### 8.8. Validator Fields
+
+Validator is a resource metadata that can be used within a precondition for a conditional request.
+
+For safe requests validator fields describe the selected representation. It may refer to different representation than in response body
+
+
