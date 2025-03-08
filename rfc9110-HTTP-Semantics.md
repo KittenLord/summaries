@@ -946,6 +946,170 @@ Example: if a client makes a PUT request, and the origin server accepts that PUT
 
 Validator is a resource metadata that can be used within a precondition for a conditional request.
 
-For safe requests validator fields describe the selected representation. It may refer to different representation than in response body
+For safe requests validator fields describe the selected representation. It may refer to different representation than in response body. For a state-changing request, they describe the new representation
+
+This spec defines modification dates and opaque entity tags
+
+#### 8.8.1. Weak versus Strong
+
+Validators can be weak or strong
+
+A strong validator changes whenever a representation changes (a change which would be observable in a 200 response to GET)
+
+It also may change when a semantically significant part of the representation metadata is changed. It should be changed only when significant, for example for cache invalidation
+
+A strong validator is unique across all versions of all representations associated with a particular (!) resource over time.
+
+Representation (and metadata, if significant) hashing (assuming no collisions) is a strong validator
+
+A weak validator is the one that is not strong lol (i.e. it may be not unique, or not change every time a change occurs, etc)
+
+An origin server SHOULD change a weak entity tag whenever it considers prior representations to be unacceptable as a substitute for the current representation (again, caching)
+
+#### 8.8.2. Last-Modified
+
+```
+Last-Modified ::= HTTP-date
+```
+
+Self-explanatory
+
+##### 8.8.2.1. Generation
+
+An origin server SHOULD send Last-Modified if the date can be reasonably and consistently determined
+
+If a resource is combined of multiple arbitrary things, the latest date of any of those things should be used
+
+An origin server SHOULD obtain Last-Modified as close as possible to the time that it generates the Date field
+
+An origin server with a clock MUST NOT generate Last-Modified that is later than Date, and MUST replace the Last-Modified value with Date value in such case
+
+An origin server without a clock MUST NOT generate Last-Modified unless that date was assigned to the resource by some other system
+
+##### 8.8.2.2. Comparison
+
+Last-Modified in a request is assumed to be weak, unless
+
+- The validator is being compared by an origin server to the actual current validator, and
+- The origin server knows that the associated representation did not change twice during the second covered by the presented validator
+
+or
+
+- The validator is about to be used by a client in an If-Modified-Since, If-Unmodified-Since, If-Range header field, because the client has a cache entry, and
+- The cache entry includes a Date, which is at least one second after the Last-Modified value
+
+or
+
+- The validator is being compared by an intermediate cache to the validator stored in its cache entry, and
+- The cache entry includes a date... (copy-paste from above)
+
+#### 8.8.3. ETag
+
+```
+ETag            ::= entity-tag
+entity-tag      ::= [ weak ] opaque-tag
+weak            ::= "W/"
+opaque-tag      ::= '"' etagc* '"'
+etagc           ::= 0x21 | 0x23-0x7E | obs-text // VCHAR - { '"' } + obs-text
+```
+
+Servers ought to avoid backslash characters in entity tags
+
+"W/" indicates the weakness, strong by default
+
+If a specific ETag is not generated as a strong validator, the origin server MUST mark it as weak
+
+A sender MAY send the ETag field in a trailer section, however, sending it in the header is preferred
+
+##### 8.8.3.1. Generation
+
+However the hell you want, considering the weak/strong semantics
+
+An origin server SHOULD send an ETag if it can be reasonably and consistently determined
+
+##### 8.8.3.2. Comparison
+
+If both are strong, a simple string equality
+
+Otherwise, a string comparison, but excluding the "W/"
+
+##### 8.8.3.3. Example: Entity Tags Varying on Content-Negotiated Resources
+
+Read the original
+
+## 9. Methods
+
+### 9.1. Overview
+
+```
+method ::= token
+```
+
+A method indicates the purpose and client's expectations of a request
+
+Method's semantics may be further specialized by some header fields
+
+The method token is case-sensitive
+
+This specification defines some of the most common methods
+
+- GET: Get a current representation of the target resource
+- HEAD: Same as GET, but do not transfer the response content
+- POST: Perform resource-specific processing on the request content
+- PUT: Replace all current representations of the target resource with the request content
+- DELETE: Remove all current representations of the target resource
+- CONNECT: Establish a tunnel to the server identified by the target resource
+- OPTIONS: Describe the communication options for the target resource
+- TRACE: Perform a message loop-back test along the path to the target resource
+
+All servers MUST support GET and HEAD. Other methods are OPTIONAL
+
+The set of supported methods for a target resource can be listed in an Allow header field
+
+An origin server that receives an unrecognized/unimplemented method SHOULD respond with the 501. If it is recognized, but unsupported/unallowed, a server SHOULD respond with 405
+
+### 9.2. Common Method Properties
+
+#### 9.2.1. Safe Methods
+
+A method is considered safe, if it is essentially read-only
+
+A server, of course, may do unsafe and mutating behaviour, but that is strictly not client's "fault" or will. Anyways, just be reasonable
+
+GET, HEAD, OPTIONS, TRACE methods are safe
+
+A user agent SHOULD distinguish between safe and unsafe methods when presenting potential actions to a user
+
+If a server supports specifying behaviour via a query or smth similar, it MUST disable or disallow such action if it is unsafe, while the method of the request is safe
+
+#### 9.2.2. Idempotent Methods
+
+A method is idempotent, if sending the same request multiple times is equivalent to sending it once. All safe methods, and also PUT, DELETE are idempotent
+
+Similar nuances as with safe methods apply
+
+A client SHOULD NOT automatically retry a request with a non-idempotent method, unless it is sure it'll be idempotent in practice, or if it can determine that the first time didn't go through
+
+A proxy MUST NOT automatically retry non-idempotent requests. A client SHOULD NOT automatically retry a failed automatic retry
+
+#### 9.2.3. Methods and Caching
+
+A method needs to explicitly allow caching for caching to be employed
+
+This specification defines caching semantics for GET, HEAD, POST.
+
+### 9.3. Method Definitions
+
+#### 9.3.1. GET
+
+The GET method requests trasfer of a current selected representation for the target resource.
+
+A client can alter the semantics of GET to be a "range request", requesting only some part(s) of the representation, by sending a Range header field
+
+A client SHOULD NOT generate content in a GET request unless it is made directly to an origin server that has in any way indicated that such functionality is supported. An origin server SHOULD NOT rely on private agreements to receive content
+
+The response to a GET is cacheable. A cache MAY use it to satisfy subsequent GET and HEAD requests unless otherwise indicated by the Cache-Control header
+
+#### 9.3.2. HEAD
 
 
