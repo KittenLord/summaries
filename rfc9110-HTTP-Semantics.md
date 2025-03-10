@@ -1112,4 +1112,415 @@ The response to a GET is cacheable. A cache MAY use it to satisfy subsequent GET
 
 #### 9.3.2. HEAD
 
+HEAD is identical to GET, but the server MUST NOT send content in the response. HEAD is used to only get metadata
+
+The server SHOULD send the same headers to equivalent HEAD and GET requests. However, a server MAY omit header fields for which a value is determined only while generating the content.
+
+A client SHOULD NOT generate content in a HEAD request unless it is made directly to an origin server that has in any way indicated that such functionality is supported. An origin server SHOULD NOT rely on private agreements to receive content
+
+The response to a HEAD is cacheable. A cache MAY use it to satisfy subsequent GET and HEAD requests unless otherwise indicated by the Cache-Control header. A HEAD response might affect previously cached GET responses
+
+#### 9.3.3. POST
+
+The POST method requests that the target resource in some way processes the representation within the request.
+
+An origin server indicates ersponse semantics by choosing an appropriate status code.
+
+If one or more resources have been created after a POST request, the server SHOULD send a 201 response with a Location header for the primary resource created and a representation that describes the status of the request while referring to the new resource(s)
+
+Responses to POST are only cacheable when they include explicit freshness information and a Content-Location header that has the same value as the requests target URI. A cached POST can be reused to satisfy a GET or HEAD request
+
+If the result of processing POST would be equivalent to another resource, an origin server MAY redirect by sending 303 response
+
+#### 9.3.4. PUT
+
+The PUT method requests that the state of the target resource be created or replaced with the state defined by the request content. A successful PUT suggests that a subsequent GET would result in an equivalent representation in a 200 response.
+
+If the representation has in fact been created, the origin server MUST send a 201 response. If it was modified, the origin server MUST send either a 200 or 204 response
+
+An origin server SHOULD verify that the PUT representation is consistent with its configured constraints for the target resource. If the PUT representation is inconsistent, the server SHOULD either make it consistent, or respond with an appropriate error message (409 and 415 are suggested)
+
+An origin server SHOULD ignore unrecognized header and trailer fields in a PUT request
+
+An origin MUST NOT send a validator field in a successful response to PUT unless absolutely no transformation was applied to the content and the validators refer to the new representation.
+
+PUT signifies a replacement (or creation) with the request content used as the base, while POST signifies that the resource will process that content somehow. Hence, PUT is idempotent.
+
+A service that selects a URI on behalf of the client SHOULD be implemented using the POST method rather than PUT. If the origin server won't apply PUT to the specified resource, but wishes it was to a different one, it MUST send a 3xx response; the user agent MAY then proceed accordingly
+
+If a PUT request is recorded in cache, responses for that target URI are to be invalidated
+
+#### 9.3.5. DELETE
+
+The DELETE method requests that the origin server remove the association between the target resource and its current functionality.
+
+The representations of the target resource might or might not be actually destroyed
+
+If a DELETE is successfully applied, the origin server SHOULD send
+
+- a 202 if the action will likely succeed but has not yet been enacted
+- a 204 if it has been enacted
+- a 200 if it has been enacted and there's extra information
+
+A client SHOULD NOT generate content in a DELETE, an origin server SHOULD NOT rely on private agreements to receive such content (same as GET and HEAD)
+
+If a DELETE is recorded in cache, responses to that target URI are to be invalidated
+
+#### 9.3.6. CONNECT
+
+The CONNECT method requests that the recipient establish a tunnel to the destination origin server and, if successful, thereafter restrict its behavior to blind forwarding of data, in both directions, until the tunnel is closed
+
+A client MUST send the port number in the request target, which consists *only* of the host and port number
+
+A server MUST reject a CONNECT that targets an empty or invalid port number, typically with a 400
+
+An origin server MAY accept a CONNECT request, but most do not implement it themselves (and rely on proxies)
+
+Any 2xx response indicates that the sender (and all inbound proxies) will switch to tunnel mode immediately after the response header section. Any other response indicates that the tunnel has not yet been formed
+
+A tunnel is closed when a tunnel intermediary detects that either side has closed its connection; the intermediary MUST attempt to send any outstanding data to the not-yet-closed side, close both connections and discard all remaining data
+
+Proxies that support CONNECT SHOULD restrict its use to a configurable/limited set of known ports, preventing spam and stuff
+
+A server MUST NOT send any Transfer-Encoding or Content-Length headers in a 2xx response to CONNECT. A client MUST ignore such headers
+
+A CONNECT request message does not have content.
+
+#### 9.3.7. OPTIONS
+
+The OPTIONS method requests information about the communication options available for the target resource, at either the origin server or an intervening intermediary.
+
+An OPTIONS request with an asterisk "\*" as the request target applies to the server in general rather than to a specific resource
+
+A server generating a successful response to OPTIONS SHOULD send any header that might indicate optional features implemented by the server and applicable to the target resource, including potential extensions. The response content, if any, might include extra related stuff, not defined by this specification
+
+A client MAY send a Max-Forwards header field in an OPTIONS to target a specific recipient in the request chain. A proxy MUST NOT generate a Max-Forwards header while forwarding, unless that request was received with Max-Forwards
+
+A client that generates an OPTIONS request containing content MUST send a valid Content-Type describing it
+
+#### 9.3.8. TRACE
+
+The TRACE method requests a remote, application-level loop-back of the request message. The final recipient of the request SHOULD reflect the message received (with some exceptions) as the content of a 200 response. The "message/http" format is one way to do so. The final recepient is either the origin server, or the first server to receive Max-Forwards = 0
+
+A client MUST NOT generate fields in a TRACE request containing sensitive data. The final recipient SHOULD exclude such fields
+
+A client MUST NOT send content in a TRACE request
+
+## 10. Message Context
+
+### 10.1. Request Context Fields
+
+The request header fields below provide additional information about the request context, including information about the user, user agent, and resource behind the request
+
+#### 10.1.1. Expect
+
+```
+Expect      ::= expectation#
+expectation ::= token [ "=" ( token | quoted-string ) parameters ]
+```
+
+The Expect header indicates a certain set of behaviours/expectations that need to be supported by the server
+
+THe field value is case-insensitive
+
+This specification only defines "100-continue" expectation with no defined parameters
+
+A server that receives a non "100-continue" expectation MAY respond with a 417
+
+A "100-continue" informs recipients that the client is about to send (presumably large) content in this request and wishes to receive a 100 interim response if the method, target URI, and header fields are not sufficient to cause an immediate success, redirect, or error response
+
+Requirements for clients:
+
+- A client MUST NOT generate a 100-continue expectation in a request with no content
+- A client that will wait for a 100 response before sending the request content MUST send an Expect header containing a 100-continue expectation
+- A client that sends a 100-continue expectation is not required to wait for any specific length of time; such a client MAY proceed to send the content anyways. A client SHOULD NOT wait for an indefinite period before sending the content
+- A client that receives a 417 in response to a 100-continue SHOULD repeat that request without a 100-continue expectation
+
+Requirements for servers:
+
+- A server that receives a 100-continue in an HTTP/1.0 request MUST ignore that expectation
+- A server MAY omit sending a 100 if it has already received some or all the content, of if there is no content
+- A server that sends a 100 MUST ultimately send a final status code after processing the request content, unless the connection has been closed prematurely
+- A server that responds with a final status code before reading the entire request content SHOULD indicate whether it intends to close the connection of continue reading the request content
+
+After receiving a HTTP/1.1+ request with 100-continue and everything except the content (yet!), an origin server MUST either
+
+- immediately respond with a final status code, or
+- immediately respond with a 100 (if the final status code can't be determined just yet)
+
+The origin server MUST NOT wait for the content before sending the 100
+
+A proxy in such scenario MUST either
+
+- immediately respond with a final status code (if can be determined without the content), or
+- forward the request-line and header section inbounds
+
+If proxy believes that the next inbound server only supports HTTP/1.0 it MAY immediately respond with a 100
+
+#### 10.1.2. From
+
+```
+From    ::= mailbox
+mailbox ::= // mailbox from RFC5322 Section 3.4.
+```
+
+The From header refers to the human user controlling the requesting user agent
+
+A user agent SHOULD NOT send a From header without explicit user configuration
+
+A robotic user agent SHOULD send a valid From header
+
+A server SHOULD NOT use the From header for access control or authentication
+
+#### 10.1.3. Referer
+
+[sic]
+
+```
+Referer ::= absolute-URI | partial-URI
+```
+
+Allows to specify where the target URI was obtained, A user agent MUST NOT include the fragment and userinfo, if any, when generating Referer
+
+If the referrer doesn't have its own URI, the user agent MUST either exclude the Referer header field or send it with a value of "about:blank"
+
+A user agent MAY truncate parts other than the referring origin
+
+A user agent SHOULD NOT send a Referer if the referring resource was accessed with a secure protocol and the request is not the same origin, unless that origin explicitly allows that. A user agent MUST NOT send a Referer in an unsecured HTTP request
+
+An intermediary SHOULD NOT modify or delete the Referer when the field value shares the same scheme and host as the target URI
+
+#### 10.1.4. TE
+
+```
+TE                  ::= t-codings#
+t-codings           ::= "trailers" | ( tranfer-coding [ weight ] )
+tranfer-coding      ::= token ( OWS ";" OWS transfer-parameter )*
+transfer-parameter  ::= token BWS "=" BWS ( token | quoted-string )
+```
+
+TE describes capabilities of the client regarding transfer codings and trailer sections
+
+A sender of TE MUST also send a "TE" connection option within the Connection header field
+
+#### 10.1.5. User-Agent
+
+```
+User-Agent      ::= product ( RWS ( product | comment ) )*
+product         ::= token [ "/" product-version ]
+product-version ::= token
+```
+
+The User-Agent contains information about the user agent responsible for the request
+
+A user agent SHOULD send a User-Agent unless specifically configured not to do so
+
+"Product" refers to software responsible. Product identifiers are listed in decreasing order of their significance
+
+A sender SHOULD limit generated product to what is necessary. A sender MUST NOT generate advertising or other redundant information there. A sender SHOULD NOT generate information in product-version not regarding the version
+
+A user agent SHOULD NOT generate a User-Agent with too much detail and SHOULD limit the addition of subproducts by third parties.
+
+### 10.2. Response Context Fields
+
+Provide extra context to the response
+
+#### 10.2.1. Allow
+
+```
+Allow ::= method#
+```
+
+Allow lists the set of methods supported by the target resource
+
+An origin server MUST generate an Allow header in a 405 response, and MAY do so in any other response. Empty Allow is possible
+
+A proxy MUST NOT modify the Allow header field
+
+#### 10.2.2. Location
+
+```
+Location ::= URI-reference
+```
+
+Location may refer to a specific resource in relation to the response
+
+If it is a relative reference, the target URI is used as the base point
+
+For 201 response Location refers to the primary resource created by the request. For 3xx, the Location refers to the preferred target resource
+
+If the Location in a 3xx response does not have a fragment component, a user agent MUST attach the original target URI fragment (if there was one)
+
+#### 10.2.3. Retry-After
+
+```
+Retry-After     ::= HTTP-date | delay-seconds
+delay-seconds   ::= DIGIT+
+```
+
+"Retry-After" indicates how long the user ought to wait before making a follow-up request. When sent in a 503 response, Retry-After indicates how long the service is expected to be unavailable to the client. When sent with any 3xx response - the minimum time to wait before issuing a redirect request
+
+#### 10.2.4. Server
+
+```
+Server ::= product ( RWS ( product | comment ) )*
+```
+
+Indicates software used by the server to handle the request. An origin server MAY generate a Server header in its responses
+
+Similar points as with User-Agent apply (SHOULD NOT too long, SHOULD limit third party additions)
+
+## 11. HTTP Authentication
+
+### 11.1. Authentication Scheme
+
+```
+auth-scheme ::= token -- case insensitive
+```
+
+This specification defines the scheme framework, not any schemes themselves
+
+A server can challenge a client, and client can provide authentication information
+
+### 11.2. Authentication Paramaters
+
+```
+token68     ::= (ALPHA | DIGIT | "-" | "." | "_" | "~" | "+" | "/")+ "="*
+auth-param  ::= token BWS "=" BWS ( token | quoted-string )
+```
+
+Each auth-param MUST only occur once per challenge
+
+### 11.3. Challenge and Response
+
+```
+challenge   ::= auth-scheme [ SP+ ( token68 | auth-param# ) ]
+```
+
+A 401 response is used to challenge the autorization of a user agent, including a WWW-Authenticate field with at least one challenge applicable to the requested resource
+
+A 407 response is used for the same thing, but by a proxy, with a Proxy-Authenticate field
+
+Listing commonly supported schemes such as "basic" first is advised
+
+To address a 401, or pre-emtively, user agent can include an Authorization header with the request
+
+To address a 407 - Proxy-Authorization header
+
+### 11.4. Credentials
+
+```
+credentials ::= auth-scheme [ SP+ ( token68 | auth-param# ) ]
+```
+
+The user agent selects the most secure (as it sees) auth-scheme that it understands from the challenge, and provides user credentials. Transmission of credentials is a significant security consideration
+
+A server SHOULD respond with a 401 with WWW-Authenticate header (with at least one challenge, possibly new ones) if it receives partial/invalid/none credentials to a protected resource
+
+A proxy SHOULD do the same - respond with 407 and Proxy-Authenticate
+
+A server that receives valid, but not fitting credentials, ought to respond with a 403
+
+### 11.5. Establishing a Protection Space (Realm)
+
+The "realm" authentication parameter is reserved for use by authentication schemes that wish to indicate a scope of protection
+
+A realm is pretty much a semantic partitioning of resources with regards to authentication and security and stuff. The realm value is a string
+
+If a prior request has been authorized, the user agent MAY reuse the same credentials for all other requests within that protection space for a period of time determined by the authentication scheme, parameters, and/or user preferences
+
+A sender MUST only generate the quoted-string syntax
+
+### 11.6. Authenticating Users to Origin Servers
+
+#### 11.6.1. WWW-Authenticate
+
+```
+WWW-Authenticate ::= challenge#
+```
+
+Indicates auth scheme(s) and parameters applicable to the target resource
+
+A server generating a 401 MUST send a WWW-Authenticate with at least one challenge. A server MAY generate a WWW-Authenticate in other responses to indicate that supplying credentials might affect the response
+
+A proxy forwarding a response MUST NOT modify any WWW-Authenticate
+
+Only one challenge is advised to be sent at a time. User agents must take special care when parsing WWW-Authenticate for more than one challenge.
+
+Spec notes that there might be an empty entry to the list of challenges, but I don't see where the grammar allows this???
+
+#### 11.6.2. Authorization
+
+```
+Authorization ::= credentials
+```
+
+Allows user agent to authenticate itself (possibly after receiving a 401).
+
+Valid credentials for a specific realm are presumed to work for all requests within that realm
+
+A proxy MUST NOT modify any Authorization header fields
+
+RFC9111 Section 3.5.
+
+#### 11.6.3. Authentication-Info
+
+```
+Authentication-Info ::= auth-param#
+```
+
+Server can communicate information after client's authentication credentials have been accepted
+
+Can be used in any HTTP response. Semantics are defined by the authentication scheme indicated by the Authorization header of the corresponding request
+
+A proxy must not (MUST NOT? not specified) modify
+
+Can be sent as a trailer field if the authentication scheme explicitly allows
+
+### 11.7. Authenticating Clients to Proxies
+
+#### 11.7.1. Proxy-Authenticate
+
+```
+Proxy-Authenticate ::= challenge#
+```
+
+A proxy MUST send at least one Proxy-Authenticate with at least one challenge in each 407 response
+
+Applies only to the next outbound client on the response chain, but it is common to use if multiple chained proxies are used. In such configuration, Proxy-Authenticate will be forwarded until consumed
+
+Stuff similar to WWW-Authenticate applies about parsing
+
+#### 11.7.2. Proxy-Authorization
+
+```
+Proxy-Authorization ::= credentials
+```
+
+Applies only to the next inbound proxy that demanded with a Proxy-Authenticate. A proxy MAY relay the credentials to the next proxy, if configured
+
+#### 11.7.3. Proxy-Authentication-Info
+
+```
+Proxy-Authentication-Info ::= auth-param#
+```
+
+Same as Authentication-Info, but for proxy authentication
+
+Applies only to the next outbound client, read Proxy-Authenticate
+
+## 12. Content Negotiation
+
+Ways for a client and a server to negotiate the content lol
+
+Three patterns of content negotiation:
+
+- Proactive - server selects a representation based on client's stated wishes
+- Reactive - client requests a list of available options from the server
+- Request content - a request with an option from the list received from reactive
+
+There is also "conditional content" - selectively rendered based on user parameters, "active content" - contains a script that makes additional (more specific) requests based on the user agent characteristics, and "Transparent Content Negotiation" [RFC2295], where selection is performed by an intermediary. These are not mutually exclusive
+
+### 12.1. Proactive Negotiation
+
 
