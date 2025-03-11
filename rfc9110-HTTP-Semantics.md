@@ -1523,4 +1523,342 @@ There is also "conditional content" - selectively rendered based on user paramet
 
 ### 12.1. Proactive Negotiation
 
+Preferences are sent by the user agent in a request (also known as "server-driven negotiation").
+
+A user agent MAY send request header fields that describe its preferences
+
+Disadvantages
+
+- Server can't decide for sure what's the best for the client
+- Having the user describe its capabilities in every request can be inefficient and a privacy risk
+- Complicates the origin server implementation
+- Limits caching responses
+
+A Vary header field is often send in a response to proactive negotiation to indicate what parts of the request were used
+
+Header fields Accept, Accept-Charset, Accept-Encoding, Accept-Language are used by user to proactively negotiate. These apply to any content in the response, including target resource, errors, etc
+
+### 12.2. Reactive Negotiation
+
+User selects content after receiving an initial response
+
+If the user is not satisfied by the initial response, it can perform a GET on one or more of the alternative resources
+
+A server might choose not to send an initial representation, only the list. 300 and 406 are often used for this
+
+Advantageous when the server can't easily decide, the user knows better
+
+Disadvantageous cuz more latency (at least 2 requests)
+
+### 12.3. Request Content Negotiation
+
+Preferences listed by a user in request, as a response to reactive negotiation, are called "request content negotiation". Accept and Accept-Encoding can be sent.
+
+### 12.4. Content Negotiation Field Features
+
+#### 12.4.1. Absence
+
+Absence of a field implies lack of sender's preference in that aspect
+
+If present, but none representations can be considered acceptable, server can either respond 406, or disregard the header field
+
+#### 12.4.2. Quality Values
+
+```
+weight  ::= OWS ";" OWS "q=" qvalue
+qvalue  ::= ( "0" [ "." [ DIGIT [ DIGIT [ DIGIT ] ] ] ] )
+          | ( "1" [ "." [ "0" [ "0" [ "0" ] ] ] ] )
+```
+
+"q" - case insensitive, used to specify relative preference
+
+Weight is between 0 and 1, where 0.001 is the least preferred, 1 is the most preferred, 0 is "not acceptable". The default weight is 1
+
+A sender of a qvalue MUST NOT generate more than 3 digits after the "."
+
+#### 12.4.3. Wildcard Values
+
+Most of these headers define a wildcard "\*" to select unspecified values If no wildcard is present, not mentioned values are considered unacceptable. Within Vary, "\*" means that the variance is unlimited
+
+### 12.5. Content Negotiation Fields
+
+#### 12.5.1. Accept
+
+```
+Accept      ::= ( media-range [ weight ] )#
+media-range ::= ( (  "*" "/" "*" )
+                | ( type "/" "*" )
+                | ( type "/" subtype ) )
+                parameters
+```
+
+"\*" is used to group media types into ranges. "\*/\*" - all, "type/\*" - all subtypes of type
+
+Each media-range may be followed by parameters, with optional "q" as the last one indicating the preference. Senders SHOULD send "q" last (if at all). Recipients SHOULD process any parameter named "q" as weight, regardless of order
+
+If more than one range applies to a given type, the most specific takes precedence
+
+#### 12.5.2. Accept-Charset [DEPRECATED]
+
+```
+Accept-Charset  ::= ( ( token | "*" ) [ weight ] )#
+```
+
+Indicates user agent's preference for charsets in textual response content
+
+A user agent MAY associate a quality value
+
+"\*" is a special value, matching every charset not mentioned elsewhere
+
+Deprecated, because everyone reasonable should be using UTF-8
+
+#### 12.5.3. Accept-Encoding
+
+```
+Accept-Encoding ::= ( codings [ weight ] )#
+codings         ::= content-coding | "identity" | "*"
+```
+
+Indicates preferences regarding the use of content codings
+
+When sent in a request, indicates codings acceptable in response
+
+When send in a response, provides information which codings are preferred in a subsequent request to the same resource
+
+Each value MAY have quality. "\*" matches every not mentioned elsewhere
+
+A server applies the following logic
+
+1. If no Accept-Encoding is in the request, any is considered acceptable
+2. If the representation has no content coding, then it is acceptable, unless stuff like "identity;q=0" or "\*;q=0", provided no more specific entries
+3. If is listed, then acceptable, unlless q=0
+
+When selecting between multiple content codings that have the same purpose, the highest non-zero qvalue is preferred
+
+Empty Accept-Encoding implies that user does not want any coding in the response. If no coding is acceptable, the origin server SHOULD send a response without any content coding, unless "identity" is indicated as unacceptable
+
+Accept-Encoding in a response indicates what codings the specific resource was willing to accept in the associated request (at that time)
+
+If server fails due to unsupported coding it ought to respond with a 415 and include an Accept-Encoding. Servers that fail with a 415 for reasons unrelated to content codings MUST NOT include a Accept-Encoding
+
+Most commonly used in 415 in response to optimistic use of a content coding by clients. Can also indicate that content codings are supported to optimize future interactions, i.e. might include in a 2xx when the request content was big enough to justify use of compression coding
+
+#### 12.5.4. Accept-Language
+
+```
+Accept-Language ::= ( language-range [ weight ] )
+language-range  ::= // language-range, RFC4647 Section 2.1.
+```
+
+Indicates the set of natural languages that are preferred in the response (view Section 8.5.1.)
+
+Each can have quality value
+
+Users should, along with assigning decreasing qvalues, list items in decreasing order, due to some erroneous implementations (also view RFC4647 Section 2.3.)
+
+Language matching - RFC4647 Section 3
+
+User agent's language selection should be configurable. A user agent now allowing configuration MUST NOT send an Accept-Language
+
+#### 12.5.5. Vary
+
+```
+Vary ::= ( "*" | field-name )#
+```
+
+In a response describes what part (or lack of it) of a request might have influenced the server's content selection process
+
+"\*" in the list indicates there might be more things that have influenced that. A proxy MUST NOT generate a "\*" in a Vary
+
+A Vary field has two purposes
+
+1. Informs cache that they MUST NOT use this response unless specified values are equivalent
+2. Informs user agent that content negotiation is going on and what might affect it
+
+An origin server SHOULD generate a Vary on a cacheable response when it wants to
+
+Vary might be elided when considered insignificant by the server
+
+Authorization should not be sent in Vary
+Apparently in Section 11.6.2 it is stated that "reuse of that response is prohibited by the field definition", and I don't see how that's the case
+
+## 13. Conditional Requests
+
+A conditional HTTP request indicates a precondition to be tested before touching the target resource
+
+Conditional GET requests are frequently used for cache updates
+
+### 13.1. Preconditions
+
+Precondition compares a set of previously received validators to their current state for the selected representation.
+
+#### 13.1.1. If-Match
+
+```
+If-Match ::= "*" | entity-tag#
+```
+
+Checks if there is at least one representation if "\*", or current representation's entity tag matches at least one in the list
+
+An origin server MUST use the strong comparison function for If-Match
+
+Frequently used to check, if the current representation is still what the client thinks it is, and hasn't been updated recently
+
+If receive If-Match the server MUST do
+
+1. If value is "\*", the condition is true if current representation exists
+2. If is a list, if any tag matches the current, true
+3. Otherwise false
+
+If If-Match evaluated false the server MUST NOT perform the requested method. It MAY indicate failure by responding 412. It the requests seems to apply the same change that has already been done, the server MAY respond with a 2xx
+
+A client MAY send an If-Match if it wants its main functionality (???)
+
+A cache or intermediary MAY ignore If-Match
+
+#### 13.1.2. If-None-Match
+
+```
+If-None-Match ::= "*" | entity-tag#
+```
+
+No current representation if "\*", or current representation doens't match any listed
+
+A recipient MUST use the weak comparison
+
+When updating cached responses a client SHOULD generate an If-None-Match. Server can respond with 304
+
+"\*" prevents modification if doesn't exist
+
+Evaluation: 
+
+1. If "\*", false if there is current representation
+2. If list, false if one of the listed matches the current
+3. Otherwise true
+
+If evaluates to false a server MUST NOT perform the requested method. It MUST respond with either a 304 to GET, HEAD, or 412 to all other requests
+
+#### 13.1.3. If-Modified-Since
+
+```
+If-Modified-Since ::= HTTP-date
+```
+
+Checks if selected representation's modification date is later than provided
+
+A recipient MUST ignore If-Modified-Since if there is also If-None-Match
+
+A recipient MUST ignore If-Modified-Since if the HTTP-date is invalid, if there are multiple values, or if the method not GET or HEAD
+
+A recipient MUST ignore if resource does not have a modification date
+
+A recipient MUST interpret an If-Modified-Since value in terms of the server's clock
+
+Used for
+
+- cache, if ETag is not available
+- looking for recent changes (duh)
+
+If includes a If-Modified-Since without If-None-Match, the server SHOULD evaluate the If-Modified-Since condition per Section 13.2.
+
+Evaluation:
+
+1. If selected representation's date is earlier or equal to provided, false
+2. Otherwise, true
+
+An origin server SHOULD NOT perform the requested method if the conditioon evaluates to false. It SHOULD generate a 304 response, including only those metadata that are useful for identifying or updating a previously cached response
+
+#### 13.1.4. If-Unmodified-Since
+
+```
+If-Unmodified-Since ::= HTTP-date
+```
+
+Can you guess what this means
+
+A recipient MUST ignore If-Unmodified-Since if If-Match is present.
+
+A recipient MUST ignore if not valid HTTP-date, or list of dates
+
+A recipient MUST ignore if resource doesn't have modification date
+
+A recipient MUST interpret timestamp in terms of server's clock
+
+All of these are using for fucking cache and "lost update" problem, we get it
+
+If If-Unmodified-Since and no If-Match, the server MUST evaluate If-Unmodified-Since as per Section 13.2.
+
+Evaluate
+
+1. If selected representation's date is earlier or equal to provided, true
+2. Otherwise, false
+
+If evaluates to false the server MUST NOT perform the requested method. It MAY respond with 412. If is a state-changing, and the same change has already been applied, it MAY respond with 2xx
+
+A client MAY send If-Unmodified-Since if it wants to
+
+A cache or intermediary MAY ignore If-Unmodified-Since
+
+#### 13.1.5. If-Range
+
+```
+If-Range ::= entity-tag | HTTP-date
+```
+
+Instructs to ignore the Range header if the validator doesn't match
+
+A client MUST NOT generate If-Range if there's no Range. A server MUST ignore an If-Range if there's no Range, or if target support doesn't support Range
+
+A client MUST NOT generate an If-Range with a weak entity tag. A client MUST NOT generate it with HTTP-date unless it has no entity tag and the date is a strong validator
+
+A server MUST evaluate as per Section 13.2.
+
+Evaluating (with HTTP-date)
+
+1. If validator is not strong (Section 8.8.2.2.), the condition is false
+2. If matches exactly the Last-Modified for the selected representation, true
+3. Otherwise, false
+
+Evaluating (with entity-tag)
+
+1. If exactly matches the ETag using only strong comparison, true
+2. Otherwise, false
+
+A recipient of If-Range MUST ignore the Range if If-Range evaluates to false. Otherwise, it SHOULD process the Range as requested
+
+### 13.2. Evaluation of Preconditions
+
+#### 13.2.1. When to Evaluate
+
+Except when excluded, a recipient cache or origin server MUST evaluate received request preconditions after successfully performing its normal request checks and just before it would process the request content (if any), or perform the action associated with the request method. A server MUST ignore all received preconditions if its response to the same request without those conditions, prior to processing the request content, would not have been a 2xx or 412.
+
+A server that is neither the origin server of the resource nor a cache MUST NOT evaluate the conditional request defined by this spec, and it MUST forward them if the request is forwarded. A server MUST ignore if method does not involve the selection or modification of a selected representation (CONNECT, OPTIONS, TRACE...)
+
+#### 13.2.2. Precedence of Preconditions
+
+The order matters
+
+A recipient cache or origin server MUST evaluate preconditions defined here in the following order
+
+1. When If-Match present, evaluate
+    true -> step 3
+    false -> respond as per Section 13.1.1.
+2. When If-Match not present, and If-Unmodified-Since present, evaluate
+    true -> step 3
+    false -> respond as per Section 13.1.4.
+3. When If-None-Match present, evaluate
+    true -> step 5
+    false -> respond as per Section 13.1.2.
+4. When method is GET/HEAD, If-None-Match not present, If-Modified-Since present, evaluate
+    true -> step 5
+    false -> respond 304 (as per Section 13.1.3. ?)
+5. When method is GET and Range and If-Range present, evaluate If-Range
+    proceed as per Section 13.1.5.
+6. Otherwise
+    perform the requested method as usual
+
+Any extensions ought to define order for evaluating their fields that are related to these
+
+## 14. Range Requests
+
 
