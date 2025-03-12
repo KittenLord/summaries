@@ -2021,3 +2021,144 @@ Despite the name, not limited to byte ranges
 Read the spec for additional details
 
 ## 15. Status Codes
+
+Three-digit code describing the result of the request and semantics of the response. All valid codes are in [100..599] range, inclusive
+
+- 1xx Informational: The request was received, continuiing process
+- 2xx Successful: The request was successfully received, understood, and accepted
+- 3xx Redirection: Further action needs to be taken in order to complete the request
+- 4xx Client Error: The request contains bad syntax or cannot be fulfilled
+- 5xx Server Error: The server failed to fulfill an apparently valid request
+
+A client MUST understand the class of any status code. If status code is unknown, treate last two digits as 0 (i.e. unknown 471 -> known 400)
+
+A client that receives an invalid (outside of range) status code SHOULD treat it as a 5xx status code
+
+A single request may have multiple corresponding responses - many or none 1xx, followed by exactly one non-1xx.
+
+### 15.1. Overview of Status Codes
+
+Phrases are recommendations
+
+Cacheable responses (200, 203, 204, 206, 300, 301, 308, 404, 405, 410, 414 an 501 per this spec, but extendable) can be reused by a cache unless otherwise indicated by the method or cache controls
+
+### 15.2. Informational 1xx
+
+An interim response for communicating connection status or request progress. A sender MUST NOT send a 1xx to an HTTP/1.0 client
+
+A 1xx response is terminated by the end of the header section
+
+A client MUST be able to parse one or more 1xx responses received prior to a final response, even if the client does not expect one. A user agent MAY ignore unexpected 1xx responses
+
+A proxy MUST forward 1xx responses, unless proxy itself requested its generation
+
+#### 15.2.1. 100 Continue
+
+The initial part of a request has been received and has not yet been rejected. The server intends to send a final response after the request has been fully received and acted upon
+
+If used with Expect, the client ought to continue sending the request, discard the 100
+
+If no Expect, client can discard
+
+#### 15.2.2. 101 Switching Protocols
+
+Willing to comply with client's request (via Upgrade) to change protocol. THe server MUST generate an Upgrade header in the response that indicates which protocol(s) will be used after this response
+
+It is assumed that server only agrees to change protocols when it is advantageous
+
+### 15.3. Successfull 2xx
+
+Request was successfully received, understood, and accepted
+
+#### 15.3.1. 200 OK
+
+Success
+
+Meaning of content:
+
+- GET: the target resource
+- HEAD: the target resource, without representation data
+- POST: the status of, or results obtained from the action
+- PUT, DELETE: the status of the action
+- OPTIONS: communication options for the target resource
+- TRACE: the request message as received by the server returning the trace
+
+Aside from CONNECT, expected to contain content unless framing indicates lack of it. If request somehow wishes for no content, 204 is ought to be sent
+
+Cacheable, unless otherwise indicated
+
+In 200 to GET or HEAD, an origin server SHOULD send any available validator fields for the selected representation, with both a strong entity tag and a Last-Modified date being preferred
+
+In 200 to state-changing methods, any validator fields refer to the new representation
+
+#### 15.3.2. 201 Created
+
+Success, one or more new resources have been created. The primary is identified by either a Location, or if there is none, by the target URI
+
+Any validator fields refer to a new representation
+
+#### 15.3.3. 202 Accepted
+
+Request accepted for processing, but it has not been completed
+
+#### 15.3.4. 203 Non-Authoritative Information
+
+Success, but the enclosed content has been modified by a transforming proxy
+
+Cacheable, unless otherwise indicated
+
+#### 15.3.5. 204 No Content
+
+Success, no additional content
+
+Implies that the user agent does not need to change its "document view", if any (e.g. "save" button)
+
+Terminated by the end of the header section
+
+Cacheable, unless otherwise indicated
+
+#### 15.3.6. 205 Reset Content
+
+Success, but desires that the "document view" is reset as it was before the request (e.g. clear out a form)
+
+A server MUST NOT generate content in a 205 response
+
+#### 15.3.7. 206 Partial Content
+
+Successfully fulfill a range request by transferring one or more parts of the selected representation
+
+A client MUST inspect a 206 response's Content-Type and Content-Range to determine which ranges have been satisfied
+
+A server generating a 206 MUST generate the following header fields, if they would've appeared in a 200 response - Date, Cache-Control, ETag, Expires, Content-Location, Vary, and those required in the subsections below
+
+Content-Length indicates length of a part
+
+A server responding 206 to request with If-Range SHOULD NOT generate other representation headers beyond those required. Otherwise a sender MUST generate all headers that would have been sent in a 200
+
+Cacheable, unless otherwise indicared
+
+##### 15.3.7.1. Single Part
+
+If single part, the server generating 206 MUST generate a Content-Range
+
+##### 15.3.7.2. Multiple Parts
+
+If multiple parts, the server generating 206 MUST generate "multipart/byteranges" content, as per Section 14.6., and a Content-Type header containing "multipart/byteranges". A server MUST NOT generate Content-Range if multiple parts (will be sent in each part instead)
+
+Within the header of each body part the server MUST generate a Content-Range. If there would be a Content-Type in a 200, the server SHOULD generate Content-Type in each body part
+
+When multiple ranges, a server MAY coalesce those that overlap, or if sending a bigger range would be more efficient
+
+A server MUST NOT generate a multipart response to a request for a single range. It MAY generate a "multipart/byteranges" with only one part if multiple ranges were requested. A client that cannot process "multipart/byteranges" MUST NOT request for multiple ranges
+
+A server generating a multipart response SHOULD send the parts in the same order as requested, excluding unsatisfieble or coalesced ones. A client receiving a multipart response MUST inspect Content-Range in each body part to determine which one it is
+
+##### 15.3.7.3. Combining Parts
+
+Client MAY combine ranges received from GET iff the strong validator matches
+
+The most recent 200 response's headers are used for the final recombination. If no 200 were received (only 206), the most recent out of them s used. The client MUST use other header fields in the new response, aside from Content-Range, to replace all instances of the corresponding header fields in the stored response
+
+If the whole representation has been recombined, the client MUST treat it as it has received a 200, including a Content-Length. Otherwise, it  MUST process either as an incomplete 200 (if prefix), a single 206 with "multipart/byteranges" content, or multiple 206 each with single range
+
+### 15.4. Redirection 3xx
