@@ -1861,4 +1861,163 @@ Any extensions ought to define order for evaluating their fields that are relate
 
 ## 14. Range Requests
 
+Used to retrieve only a part(s) of representation, for example, if you already have other parts
 
+Range requests are an OPTIONAL feature
+
+### 14.1. Range Units
+
+```
+range-unit ::= token
+```
+
+I guess it's units in which range is measured in? It's not explained
+
+But at least it's case-insensitive
+
+#### 14.1.1. Range Specifiers
+
+```
+ranges-specifier        ::= range-unit "=" range-set
+range-set               ::= range-spec#+
+range-spec              ::= int-range | suffix-range | other-range
+
+int-range               ::= first-pos "-" [ last-pos ]
+first-pos               ::= DIGIT+
+last-pos                ::= DIGIT+
+
+suffix-range            ::= "-" suffix-length
+suffix-length           ::= DIGIT+
+
+other-range             ::= ( 0x21-0x2B | 0x2D-0x7E )+ // VCHAR without ','
+```
+
+Range is expressed by a unit and a specified
+
+int-range - range measured in units
+
+int-range is invalid if the last-pos is present and less than the first-pos
+
+suffix-range - last N units
+
+other-range - whatever
+
+A ranges-specifier is invalid if it contains any invalid/undefined range-spec
+
+A valid ranges-specified is "satisfiable" if it contains at least one satisfiable range-spec (as defined per range-unit)
+
+#### 14.1.2. Byte Ranges
+
+The "bytes" range unit measures bytes (octets). Byte ranges do not use the other-range specified
+
+int-range is inclusive, byte offsets start at zero
+
+If coding is applied, the coded bytes are counted, not the original undecoded
+
+If last-pos is absent or greater than the actual name, the server fixes it to (length - 1)
+
+suffix-range - last N bytes (N > 0), or the whole representation if N >= length
+
+For a GET request, a valid bytes is satisfiable if it's either
+
+- an int-range with a first-pos < length
+- a fuxxix-range with a non-zero suffix-length
+
+Recipients MUST ancitipate potentially large decimal numerals
+
+### 14.2. Range
+
+```
+Range ::= ranges-specifier
+```
+
+Modifies GET request to request only the specified subranges
+
+A server MAY ignore Range
+
+A server MUST ignore a Range if it's undefined for the specified method (or if it is unknown). This spec only defines behavior for GET
+
+A server MUST ignore a Range if range-unit is unknown. A proxy MAY discard it if same
+
+A server MAY ignore if invalid ranges-specifier, more than two overlapping ranges, many small ranges not in ascending order. A client SHOULD NOT be inefficient with multiple ranges
+
+A server MAY ignore a Range when the selected representation has no content
+
+A client SHOULD list ranges in ascending order, unless there's a specific reason.
+
+Range is evaluated after precondition headers (Section 13.1.), and only if the response would be 200 without it.
+
+If all is fine, the server SHOULD send a 206 response with content containing one or more partial representations that correspond to the satisfiable range-spec(s) requested
+
+If everything is fine, but range-unit is not supported, or ranges-specified is unsatisfiable, the server SHOULD respond with 416
+
+### 14.3. Accept-Ranges
+
+```
+Accept-Ranges       ::= acceptable-ranges
+acceptable-ranges   ::= range-unit#+
+```
+
+In a response indicates whether the ranges is supported for the target resource
+
+A client MAY generate range requests without receiving Accept-Ranges prior
+
+A client MUST NOT assume that Accept-Ranges is persistent
+
+A server not supporting ranges MAY send
+
+```
+Accept-Ranges: none
+```
+
+The Accept-Ranges MAY be sent in a trailer section
+
+### 14.4. Content-Range
+
+```
+Content-Range       ::= range-unit SP ( range-resp | unsatisfied-range )
+range-resp          ::= incl-range "/" ( complete-length | "*" )
+incl-range          ::= first-pos "-" last-pos
+unsatisfied-range   ::= "*/" complete-length
+complete-length     ::= DIGIT+
+```
+
+Sent in a single part 206 response to indicate the range it has in content, sent in 416 for general information
+
+If a 206 response with Content-Range has unit that recipient does not understand it MUST NOT attempt to recombine it with a stored representation. A proxy SHOULD forward such message downstream
+
+Content-Range might be used for a partial PUT (Section 14.5.). A server MUST ignore a Content-Range if it's not defined for the method
+
+For bytes, a sender SHOULD indicate the complete length, unless it is unknown or difficult to determine, indicated by "\*"
+
+Invalid if last-pos less than first-pos, or complete-length is less or equal to last-pos. Recipient of invalid Content-Range MUST NOT attempt to recombine
+
+A server generating 416 to bytes SHOULD send Content-Range with unsatisfied-range
+
+Content-Range has no meaning for status codes unless explicitly specified (only 206 and 416 in this specification)
+
+### 14.5. Partial PUT
+
+PUT request with a Content-Range may indicate replacing within range, but is not widely supported, usually depends on private agreements with user agents
+
+An origin server SHOULD respond with a 400 if PUT with Content-Range, unless it supports it
+
+Not backwards compatible
+
+### 14.6. Media Type multipart/byteranges
+
+206 response parts are transmitted as body parts in a multipart message body (RFC2046 Section 5.1.) with the media type "multipart/byteranges"
+
+"multipart/byteranges" includes one or more body parts, each with Content-Type and Content-Range
+
+Implementation Notes:
+
+- Additional CRLFs might precede the first boundary string in the body
+- Occasionally quoted boundary strings are handled incorrectly
+- Some implementations use "multipart/x-byteranges", not entirely compatible
+
+Despite the name, not limited to byte ranges
+
+Read the spec for additional details
+
+## 15. Status Codes
