@@ -2162,3 +2162,307 @@ The most recent 200 response's headers are used for the final recombination. If 
 If the whole representation has been recombined, the client MUST treat it as it has received a 200, including a Content-Length. Otherwise, it  MUST process either as an incomplete 200 (if prefix), a single 206 with "multipart/byteranges" content, or multiple 206 each with single range
 
 ### 15.4. Redirection 3xx
+
+Indicates that further action needs to be taken by the user agent to fulfill the request
+
+Server types
+
+1. Resource might be available at a different URI (Location)
+2. Choice among resources capable of representing this resource
+3. Different resource (Location) that can represent an indirect response to the request
+4. Redirection to a previously stored result
+
+If Location is provided, user agent MAY automatically redirect its request to it, even if the specific status code is not understood, but be careful with unsafe methods
+
+When doing so, user agent SHOULD resend the original request with following modifications
+
+1. Replace the target URI with Location
+2. Regenerate automatically generated headers
+    - Connection-specific ones
+    - Proxy configuration
+    - Origin-specific headers (Host)
+    - Validating headers
+    - Resource-specific (Referer, Origin, Authorization, Cookie)
+3. Consider removing headers where there are security implications
+4. Change method if status code says to
+5. If new method is GET or HEAD, remove content-specific headers
+
+A client SHOULD expect redirection infinite loops
+
+#### 15.4.1. 300 Multiple Choices
+
+Indicates that resource has more than one representation, information about alternatives is provided to the client (reactive negotiation)
+
+If the server has a preferred choice, it SHOULD generate a Location for it. The user MAY use it automatically
+
+Fot non HEAD requests, server SHOULD generate content containing a list of representation metadata and URI reference(s) to choose from. THe user agent MAY automatically make a selection from that list. Format is not defined here
+
+Cacheable, unless otherwise indicated
+
+#### 15.4.2. 301 Moved Permanently
+
+Indicates that target resource has been assigned a new permanent URI. Server suggests to replace all old references with the new one
+
+The server SHOULD generate a Location. The user agent MAY use it for automatic redirection
+
+A user agent MAY change the request from POST to GET for the new request (308 can be used to forbid this)
+
+Cacheable, unless otherwise indicated
+
+#### 15.4.3. 302 Found
+
+The target resource resides temporarily under a different URI. The old URI is still to be used
+
+The server SHOULD generate a Location. The user agent MAY perform automatic redirection
+
+A user agent MAY change the request from POST to GET for the new request (307 can be used to forbid this)
+
+#### 15.4.4. 303 See Other
+
+The server is redirecting the user agent to a different resource, which is intended to provide an indirect response to the original request. Result of redirection can be treated as an answer to the original request. The new URI is not considered equivalent to the old
+
+303 implies that there is no representation for the target resource, but there is another resource that might be of use
+
+Except for HEAD, representation ought to contain a short hypertext note with a hyperlink to the same URI reference as in the Location
+
+#### 15.4.5. 304 Not Modified
+
+A conditional GET or HEAD would've been 200, but the condition evaluated to false
+
+A server generating 304 MUST generate following, if the would've appeared in a 200
+    - Content-Location, Date, ETag, Vary
+    - Cache-Control, Expires
+
+A sender SHOULD NOT generate other representation metadata, unless it provides cache updates
+
+A proxy SHOULD forward the 304 to its clients (duh???)
+
+304 is terminated by the end of the header section
+
+#### 15.4.6. 305 Use Proxy
+
+Deprecated
+
+#### 15.4.7. 306 (Unused)
+
+Deprecated, reserved
+
+#### 15.4.8. 307 Temporary Redirect
+
+Target resource resides temporarily under a new URI, if user automatically redirects the method MUST NOT change
+
+The server SHOULD generate a Location. THe user MAY use it for automatic redirection. Content usually contains a hyperlink to the different URI(s)
+
+#### 15.4.9. 308 Permanent Redirect
+
+Target resource has been assigned a new permanent URI, future references to this resource should use one of the enclosed URIs. Similar to 301
+
+The server SHOULD generate a Location. The user agent MAY use it for auomatic redirection
+
+Cacheable, unless otherwise indicated
+
+Might not be recognized everywhere
+
+### 15.5. Client Error 4xx
+
+Client seems to have erred. Except to HEAD, the server SHOULD send a representation explaining the situation, and whether it is temporary or permanent. User agents SHOULD display any included representation to the user
+
+#### 15.5.1. 400 Bad Request
+
+A generic client error
+
+#### 15.5.2. 401 Unauthorized
+
+Request has not been applied because it lacks valid authentication credentials. The server MUST send a WWW-Authenticate with at least one challenge
+
+If the request did have credentials, 401 indicates that authorization has been refused for those credentials. The user agent MAY repeat the request with a new AUthorization header. If the 401 contains the same challenge as the prior, and the user agent has already attempted authentication at least once, it SHOULD present the enclosed representation to the user
+
+#### 15.5.3. 402 Payment Required
+
+Reserved
+
+#### 15.5.4. 403 Forbidden
+
+The request is understood, but the server refuses to fulfill it. The reason may be disclosed in the content
+
+If authentication credentials were provided, the server considers them insufficient. The client SHOULD NOT automatically repeat the request with the same credentials, but MAY with new ones. 403 may be unrelated to the credentials though
+
+An origin server wishing to "hide" the resource MAY respond with 404 instead
+
+#### 15.5.5. 404 Not Found
+
+The origin server did not find a current representation for the target resource, or pretends as such. 410 is preferred if this lack is known to be permanent
+
+Cacheable, unless otherwise indicated
+
+#### 15.5.6. 405 Method Not Allowed
+
+Method in the request-line is known, but not supported by the target resource. The origin server MUST generate an Allow with supported methods
+
+Cacheable, unless otherwise indicated
+
+#### 15.5.7. 406 Not Acceptable
+
+Target resource does not have a current representation that would be acceptable to the user agent (proactive negotiation)
+
+The server SHOULD generate content with a list of available representation characteristics and corresponding resource identifiers. A user agent MAY automatically select the most appropriate choice from that list
+
+#### 15.5.8. 407 Proxy Authentication Required
+
+Similar to 401, but regarding proxy. The proxy MUST send a Proxy-Authenticate with at least one challenge. The client MAY repeat the request with new header
+
+#### 15.5.9. 408 Request Timeout
+
+The server did not receive a complete request message within a reasonable amount of time
+
+If the client has an outstanding request in transit, it MAY repeat that request
+
+#### 15.5.10. 409 Conflict
+
+Request could not be completed due to a conflict with the current state of the target resource. The server SHOULD generate content with information to recognize the source of the conflict
+
+#### 15.5.11. 410 Gone
+
+The access to the target resource is no longer available and this condition is likely permanent. If not permanent, 404 ought to be used
+
+#### 15.5.12. 411 Length Required
+
+Refuse the request without a defined Content-Length. The client MAY repeat the request after adding valid Content-Length
+
+#### 15.5.13. 412 Precondition Failed
+
+One or more conditions evaluated to false
+
+#### 15.5.14. 413 Content Too Large
+
+Refuse because the request content is too large. The server MAY terminate the request, if the protocol allows. Otherwise, it MAY close the connection
+
+If the condition is temporary, the server SHOULD generate a Retry-After
+
+#### 15.5.15. 414 URI Too Long
+
+Refuse, because URI is too long
+
+Cacheable, unless otherwise indicated
+
+#### 15.5.16. 415 Unsupported Media Type
+
+Refuse, because the request content is in a format not supported by this method on the target resource
+
+Problem might be with Content-Type or Content-Encoding
+
+Accept-Encoding may be sent to indicate the problem
+
+Accept may be used to indicate which media types would have been accepted
+
+#### 15.5.17. 416 Range Not Satisfiable
+
+The set of ranges in Range has been rejected, because none are satisfiable, or they are badly formed
+
+A 416 to byte-range request SHOULD come with Content-Range specifying the current length
+
+Clients cannot depend on receiving a 416 even when it is most appropriate
+
+#### 15.5.18. 417 Expectation Failed
+
+Expectation in the Expect header could not be met
+
+#### 15.5.19. 418 I'm a teapot
+
+Any attempt to brew coffee with a teapot should result in the error code "418 I'm a teapot". The resulting entity body MAY be short and stout.
+
+Unused, reserved
+
+#### 15.5.20. 421 Misdirected Request
+
+The request was directed at a server that is unable or unwilling to produce an authoritative response for the target URI. May be sent when target URI does not match an origin or connection context
+
+A client MAY retry the request, whether or not the method is idempotent, over a different connection
+
+A proxy MUST NOT generate a 421
+
+#### 15.5.21. 422 Unprocessable Content
+
+The server understands the content type, and everything is correct, but it was unable to process the contained instructions
+
+#### 15.5.22. 426 Upgrade Required
+
+Refuse to perform the request using the current protocol, but might be willing to do so after the client upgrades. The server MUST send an Upgrade header
+
+### 15.6. Server Error 5xx
+
+The server has erred or is incapable of performing the requested method. Except to HEAD, the server SHOULD send a representation with explanation. A user agent SHOULD display any included representation to the user
+
+#### 15.6.1. 500 Internal Server Error
+
+A genetic server error
+
+#### 15.6.2. 501 Not Implemented
+
+The server does not support the functionality to fulfill the request. For example, unrecognized request method
+
+Cacheable, unless otherwise indicated
+
+#### 15.6.3. 502 Bad Gateway
+
+The server, while acting as a gateway or proxy, received an invalid response from an inbound server
+
+#### 15.6.4. 503 Service Unavailable
+
+The server is currently unable to handle the request for any reason - overload, maintenance, etc. The server MAY send a Retry-After
+
+503 is not mandated to be used if server is overloaded, it might as well refuse the connection
+
+#### 15.6.5. 504 Gateway Timeout
+
+The server, while acting as a gateway of proxy, did not receive a response from an upstream server
+
+#### 15.6.6. 505 HTTP Version Not Supported
+
+Does not/refuse to support the major HTTP version that the request uses. The server SHOULD generate a representation describing why that version is not supported, and what other protocols are supported
+
+## 16. Extending HTTP
+
+Version-specific extensions cannot override or modify the semantics of a version-independent mechanism or extension point, without being explicitly allowed
+
+### 16.1. Method Extensibility
+
+#### 16.1.1. Method Registry
+
+Don't care
+
+#### 16.1.2. Considerations for New Methods
+
+Methods should be generic, not reliant on a particular media type, kind of resource or whatever
+
+Methods cannot change the general parsing mechanism
+
+Methods cannot use special targets that are allowed for CONNECT and OPTIONS
+
+Method needs to indicate whether it is safe, idempotent, cacheable, content semantics. If cacheable, needs to describe details. Might have partial response semantics
+
+Method should not start with "M-"
+
+### 16.2. Status Code Extensibility
+
+#### 16.2.1. Status Code Registry
+
+Don't care
+
+#### 16.2.2. Considerations for New Status Codes
+
+Status code should be generic, not media type, resource, etc specific
+
+Status code is required to fall under one of the categories defined above
+
+Status code should explain how it could be triggered, what dependencies to headers there are, etc
+
+Status code only applies to the corresponding request - if not, must be explicitly specified
+
+Status code should specify whether it is cacheable
+
+Status code should indicate the relation between the content and an identified resource
+
+### 16.3. Field Extensibility
+
+
