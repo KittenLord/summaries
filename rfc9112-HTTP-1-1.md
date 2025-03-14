@@ -57,7 +57,7 @@ A server SHOULD ignore at least one empty CRLF prior to the request-line
 
 A sender MUST NOT send whitespace between start-line and the first header field. A recipient of such an invalid message MUST either completely invalidate the message, or ignore each whitespace-preceded line without any processing of it until encountering a first valid header field.
 
-If a server accepts something that doesn't look like HTTP, it SHOULD    respond with 400 response and close the connection.
+If a server accepts something that doesn't look like HTTP, it SHOULD respond with 400 response and close the connection.
 
 ### 2.3. HTTP Version
 

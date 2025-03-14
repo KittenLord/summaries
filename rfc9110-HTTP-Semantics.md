@@ -96,7 +96,7 @@ A request has a method and target, it also may contain header fields, client inf
 
 A response has a status code, header fields, resource metadata, representation metadata, content, trailer fields.
 
-### 3.5. User Agens
+### 3.5. User Agents
 
 "User agent" is a client program
 
@@ -155,7 +155,7 @@ Hello World! My content includes a trailing CRLF.
 
 ### 4.1. URI References
 
-Read the RFC 3986 about URIs (this is actually important!!!).
+Read the RFC 3986 about URIs (this is actually important).
 
 Apart from grammer defined by that RFC, there are 2 more rules:
 ```
@@ -168,7 +168,7 @@ partial-URI     ::= relative-part [ "?" query ]
 
 Unless otherwise stated, URI references are parsed relative to the target URI
 
-It is RECOMMENDED that all senders and recipients support URIs at least 800 octets long
+It is RECOMMENDED that all senders and recipients support URIs at least 8000 octets long
 
 ### 4.2. HTTP-Related URI Schemes
 
@@ -286,6 +286,10 @@ A field is a name/value pair to provide data. They are sent and received within 
 
 ### 5.1. Field Names
 
+```
+field-name ::= token
+```
+
 Field names are case-insensitive and ought to be registered within HTTP Field Name Registry
 
 The interpretation of a field does not change between minor versions, though the behavior in the absence of such a field can change. Unless stated otherwise, fields are defined for all version of HTTP, especially Host and Connection fields.
@@ -339,8 +343,6 @@ field-vchar             ::= VCHAR
 obs-text                ::= // 0x80..0xFF
 ```
 
-NOTE: if I'm reading the original spec correctly, it implies that field-content cannot contain only 2 field-vchars (either 1 or 1 + [ (n >= 1) + 1 ]). Either I, or spec authors, are retarded, and I humbly assume it's the former
-
 A field value does not include leading or trailing whitespace. A field parsing implementation MUST exclude such whitespace prior to evaluating the field value.
 
 You pretty much should only use VCHAR (US-ASCII octets), SP (' ') and HTAB ('\t'). A recipient SHOULD treat other allowed octets in a field content as opaque data (obs-text)
@@ -381,11 +383,11 @@ tchar           ::= "!" | '#' | "$" | "%" | "&" | "'" | "*" | "+" | "-" | "." | 
 
 #### 5.6.3. Whitespace
 
-OWS - optional whitespace (if for readability a sender SHOULD genereate OWS as a singular ' ', otherwise SHOULD NOT)
+OWS - `(SP | HTAB)*`, optional (if for readability a sender SHOULD genereate OWS as a singular ' ', otherwise SHOULD NOT)
 
-RWS - required whitespace (a sender SHOULD generate RWS as a single ' ')
+RWS - `(SP | HTAB)+`, required (a sender SHOULD generate RWS as a single ' ')
 
-BWS - bad whitespace (a sender MUST NOT generate BWS. A sender MUST parse for BWS and remove it (it may be there for historical reasons))
+BWS - `OWS`, bad (a sender MUST NOT generate BWS. A sender MUST parse for BWS and remove it (it may be there for historical reasons))
 
 #### 5.6.4. Quoted Strings
 
@@ -687,7 +689,7 @@ Connection          ::= connection-option#
 connection-option   ::= token
 ```
 
-When a  field that's not Connection supplies control information for a connection, the sender MUST list that field name within the Connection header field. Some version of HTTP do not allow the Connection field
+When a field that's not Connection supplies control information for a connection, the sender MUST list that field name within the Connection header field. Some version of HTTP do not allow the Connection field
 
 Intermediaries MUST parse a received Connection header field before forwarding, and remove any header/trailer field listed in Connection, including itself (or replace the Connection with something of its own)
 
