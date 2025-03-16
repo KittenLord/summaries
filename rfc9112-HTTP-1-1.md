@@ -160,7 +160,7 @@ Otherwise
 - If request-target is authority-form or asterisk-form, path and query are empty. Otherwise, request-target is used.
 - These components are then used to reconstruct an absolute-URI
 
-If authority is empty, but scheme requires it to be non-empty, the server can reject the request, or determine if it can use the default, and replace it if it can before processing further.
+If authority is empty, but scheme (both http and https do) requires it to be non-empty, the server can reject the request, or determine if it can use the default, and replace it if it can before processing further.
 
 This may, however, be unsafe, if authority that user intended doesn't match with the one determined.
 
