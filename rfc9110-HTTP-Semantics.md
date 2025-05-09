@@ -34,35 +34,43 @@ I don't care
 
 I'll be using whatever I'll happen to be using
 
+List extension (Section 5.6.1.)
+
+"obs-" - obsolete
+
 ### 2.2. Requirements Notation
 
 RFC2119, RFC8174
 
-A sender MUST NOT generate protocol elements that do not match the defined syntax. They almost MUST NOT generate elements that do not fit their role as a participant
+"generate" ~= "send", but without the actual sending/forwarding
 
-A recipient of any message MAY employ workarounds for known erroneous implementations
+A sender MUST NOT generate invalid protocol elements, MUST NOT send elements that do not fit its role
+
+A recipient of any message MAY employ workarounds (only) for known erroneous implementations
 
 ### 2.3. Length Requirements
 
-A recipient SHOULD parse received protocol elements defensively, relying only on the syntax correctness
+A recipient SHOULD parse received protocol elements defensively
 
 HTTP does not define length limitations for most elements, so participants should have their own expectations
 
-A recipient MUST be able to parse and process element lengths that are at least as long as the values that it itself generates in other messages, e.g. if a server publishes very long URI references, it MUST be able to process URI references of the same length or longer
+A recipient MUST be able to parse elements of the same length that it may generate itself, at least
 
 ### 2.4. Error Handling
 
 A recipient MUST interpret received elements according to this specification, unless it has been determined that the sender itself is incorrectly implemented.
 
-Unless noted otherwise, a recipient MAY try to recover a valid element from an invalid construct. Such recovery mechanisms will not be discussed here
+Unless noted otherwise, a recipient MAY try to recover an invalid element. Such recovery mechanisms will not be discussed here
 
 ### 2.5. Protocol Version
 
-HTTP version consists of a major version and a minor version, both decimal digits, separated by a ".". Major version indicates the messaging syntax, minor version indicates the highest minor version that the sender is conformant to
+Major version - messaging syntax; backwards incompatible syntax
 
-HTTP major version number in case of an introduction of a backwards incompatible message syntax. Minor version is only about adding extra semantics
+Minor version - highest conformant minor version within the major; extra semantics added
 
-If a minor version is not defined, it is implied to be "0"
+Both 1 digit
+
+Minor version is 0 by default/when implied
 
 ## 3. Terminology and Core Concepts
 
@@ -72,92 +80,70 @@ A resource is pretty much anything that can be retrieved
 
 HTTP relies on URI for resource identification
 
-A resource cannot treat a request in a mannor inconsistent wiht the semantics of the method of the request
+A resource cannot treat a request in a mannor inconsistent with the semantics of the method of the request
 
 ### 3.2. Representations
 
-A representation is whatever you get from a resource at any given time.
-
-Blah blah doesn't matter
+A representation is information about any (current, past, generated, desired, etc) state of a given resource. Consists of metadata and data
 
 ### 3.3. Connections, Clients and Servers
 
 HTTP is a client/server protocol
 
-An HTTP client is a program that connects to a server to send requests. An HTTP server is a program that accepts connections to serve requests by sending responses
+An HTTP client connects to the server to send 1+ requests. An HTTP server accepts connections to serve responses
 
-HTTP is defined as a stateless protocol. Regardless if the TCP connection, or anything else, indicates the "sameness" of the connection, the responses MUST [this MUST is my addition] assume no state.
+HTTP is stateless - each request can be understood in isolation. Messages are independent from a specific (TCP) connection
 
 A server MUST NOT assume that two requests on the same connection are from the same user agent, unless the connection is secured.
 
 ### 3.4. Messages
 
-A request has a method and target, it also may contain header fields, client information, representation metadata, content, trailer fields.
+Client sends requests. A request has a method and a target
 
-A response has a status code, header fields, resource metadata, representation metadata, content, trailer fields.
+Server responds to requests with responses. A response has a status code
+
+Both may have additional header fields, client/server information, representation meta/data, trailer fields
 
 ### 3.5. User Agents
 
-"User agent" is a client program
+"User agent" is a client program. It may be a web browser, but also a web-spider, tools, IoT stuff, etc
 
-The most intuitive user agent is a web browser, but that's obviously far from the only one. Therefore, a server shouldn't assume that there's a human on the other side.
+User Agent may not have direct human control
 
 ### 3.6. Origin Server
 
-"Origin server" is a server that generates responses. Most intuitive are public websites, but again, they are far from the only ones.
+"Origin server" is a server program. It may be a website, but also any other thing you can come up with
 
 ### 3.7. Intermediaries
 
-HTTP enables the use of intermediaries to deliver requests/responses. There are 3 common forms of HTTP intermediary: proxy, gateway, tunnel.
+Intermediaries form a chain to satisfy requests. A machine may act both as a server and an intermediary (for example), depending on the request
 
-These may be used to redirect the requests and responses, or, depending on the request, act as an origin server and generate responses themselves, or whatever the fuck you can come up with.
+Messages go from "upstream" to "downstream". "onbound" - towards the server; "outbound" - towards the client
 
-All messages flow from "upstream" to "downstream". "Inbound" means "toward the origin server", "outbound" means "toward the user agent"
+Proxy - intermediary chosen by the client for whatever reasons
 
-A proxy is a message-forwarding agent *chosen by the client* that acts on behalf of the client and acts as a... proxy.
+Gateway (reverse proxy) - intermediary chosen by the server, usually for selecting an internal server and dirty work. Gateway should behave like a server from the client's POV
 
-A gateway, also known as reverse proxy, is a proxy, but for the origin server. It behaves as an origin server from outside, but internally it redirects stuff from and to the real origin server. All HTTP requirements to the origin server also apply to the outbound communication of a gateway.
+Tunnel - relays everything without altering. Once active, not considered a separate party. Closes when both ends are closed. Used for security or whatever
 
-A tunnel is a blind relay between two connections. Once active, it is not considered a party to the HTTP communication. A tunnel ceases to exist when both ends of the connection are closed.
+This list is not exhaustive
 
 ### 3.8. Caches
 
-Any client or server MAY employ a cache, though it cannot be used while acting as a tunnel.
+Cache stores previously acquired data for efficiency purposes. A client/server MAY employ a cache, unless a tunnel is being used
 
-It's obvious what caching is and what its implications are. More is defined in [RFC9111]
+More later and in [RFC9111]
 
 ### 3.9. Example Message Exchange
 
-Client request:
-```
-GET /hello.txt HTTP/1.1
-User-Agent: curl/7.64.1
-Host: www.example.com
-Accept-Language: en, mi
-```
-
-Server response:
-```
-HTTP/1.1 200 OK
-Date: Mon, 27 Jul 2009 12:28:53 GMT
-Server: Apache
-Last-Modified: Wed, 22 Jul 2009 19:15:56 GMT
-ETag: "34aa387-d-1568eb00"
-Accept-Ranges: bytes
-Content-Length: 51
-Vary: Accept-Encoding
-Content-Type: text/plain
-
-Hello World! My content includes a trailing CRLF.
-```
+View original
 
 ## 4. Identifiers in HTTP
 
 ### 4.1. URI References
 
-Read the RFC 3986 about URIs (this is actually important).
+URI-reference, absolute-URI, relative-part, authority, port, host, path-abempty, segment, query definitions and grammar rules are imported from [RFC3986]
 
-Apart from grammer defined by that RFC, there are 2 more rules:
 ```
 -- Allows for consecutive "/", unlike path-absolute
 absolute-path   ::= ("/" segment)+
@@ -166,32 +152,30 @@ absolute-path   ::= ("/" segment)+
 partial-URI     ::= relative-part [ "?" query ]
 ```
 
-Unless otherwise stated, URI references are parsed relative to the target URI
+Unless otherwise indicated, URI references are parsed relative to the target URI
 
 It is RECOMMENDED that all senders and recipients support URIs at least 8000 octets long
 
 ### 4.2. HTTP-Related URI Schemes
 
-Useful link: https://www.iana.org/assignments/uri-schemes/
-
-HTTP makes use of two schemes - "http" and "https"
+"http", "https" (secure)
 
 #### 4.2.1. http URI Scheme
 
 ```
-http-URI                    ::= "http" ":" "//" authority path-abempty [ "?" query ]
+http-URI    ::= "http" ":" "//" authority path-abempty [ "?" query ]
 ```
 
-Origin server is identified by the authority component, which includes a host identifier and optional port number. The default port value is 80.
+Origin server is identified by the authority i.e. host identifier and optional port number (80 by default)
 
-A sender MUST NOT generate an "http" URI with an empty host identifier. Such URIs MUST be rejected as invalid.
+A sender MUST NOT generate an "http" URI with an empty host. Such URIs MUST be rejected as invalid.
 
 #### 4.2.2. https URI Scheme
 
 Origin server has to be capable of establishing a TLS connection
 
 ```
-https-URI                    ::= "https" ":" "//" authority path-abempty [ "?" query ]
+https-URI   ::= "https" ":" "//" authority path-abempty [ "?" query ]
 ```
 
 Everything from the previous section applies, except that the default port is 443
@@ -207,12 +191,12 @@ http and https URIs are normalized and compared as per URI rfc.
 HTTP does not require using a specific method for determining equivalence.
 
 Scheme-based URI normalization for "http" and "https" has some extra rules
-    - If the port is equal to the default, the normal form is to omit the port subcomponent
-    - Unless it is used as tht target for an OPTIONS request, an empty path component is equivalent to "/", so the normalized for is the latter
+    - If the port is equal to the default, omit it
+    - Unless it is used as the target for an OPTIONS request, an empty path is equivalent to "/", latter being normalized
     - scheme and host are case-insensitive and are normalized to lowercase, all other components are case-sensitive.
     - Characters other than those in the reserved set are equivalent to their percent-encoded octets, the normal form is to not encode them
 
-If two HTTP URIs are equivalent after normalization, they can be assume to identify the same resource. Any HTTP component MAY perform normalization. Distinct resources SHOULD NOT be identified by HTTP URIs that are equivalent after normalization
+If two HTTP URIs are equivalent after any normalization, they can be assume to identify the same resource. Any HTTP component MAY perform normalization. Distinct resources SHOULD NOT be identified by HTTP URIs that are equivalent after normalization
 
 #### 4.2.4. Deprecation of userinfo in http(s) URIs
 
@@ -270,7 +254,7 @@ The origin server also must confirm that the port in the URI is the same as the 
 
 To establish a connection a client MUST verify that the service's identity is an acceptable match for the URI's origin server.
 
-A client MUST verify the service identity using the verification process in RFC6125 section 6. The client MUST construct a reference identity from the service's host: if the host is an IP address - IP-ID, otherwise DNS-ID
+A client MUST verify the service identity using the verification process in RFC-6125 section 6. The client MUST construct a reference identity from the service's host: if the host is an IP address - IP-ID, otherwise DNS-ID
 
 A reference identity of type CN-ID MUST NOT be used by clients.
 
@@ -347,7 +331,7 @@ A field value does not include leading or trailing whitespace. A field parsing i
 
 You pretty much should only use VCHAR (US-ASCII octets), SP (' ') and HTAB ('\t'). A recipient SHOULD treat other allowed octets in a field content as opaque data (obs-text)
 
-Field values containing CR, LF or NUL are invalid and dangerous and bad. A recipient of CR, LF or UNL within a field value MUST either reject the message, or replace each of those characters with SP ' ' before further processing or forwarding. Same applies for other control characters, but recipients MAY retain such characters when they appear within a safe context
+Field values containing CR, LF or NUL are invalid and dangerous and bad. A recipient of CR, LF or NUL within a field value MUST either reject the message, or replace each of those characters with SP ' ' before further processing or forwarding. Same applies for other control characters, but recipients MAY retain such characters when they appear within a safe context
 
 Fields that only anticipate a single member as value are called "singleton fields", in contrast to "list-based fields"
 
@@ -359,7 +343,7 @@ When a field allows for both quoted and unquoted variants, the meaning of a para
 
 #### 5.6.1. Lists (#rule ABNF Extension)
 
-I'll be using # instead of * and #+ instead of + to indivate a comma-joined list (and optional whitespace)
+I'll be using # instead of * and #+ instead of + to indicate a comma-joined list (with optional whitespace)
 
 ##### 5.6.1.1. Sender Requirements
 
@@ -367,7 +351,7 @@ A sender MUST NOT generate empty list elements
 
 ##### 5.6.1.2. Recipient Requirements
 
-Empty lsit elements do not contribute to the count of elements. A recipient MUST parse and ignore empty list elements, but may not commit (ignore several empty list elements, that can be attributed to a common mistake, then reject)
+Empty list elements do not contribute to the count of elements. A recipient MUST parse and ignore empty list elements, but may not commit (ignore several empty list elements, that can be attributed to a common mistake, then reject)
 
 Pretty much just expect that some retard may use empty list elements
 
@@ -689,7 +673,7 @@ Connection          ::= connection-option#
 connection-option   ::= token
 ```
 
-When a field that's not Connection supplies control information for a connection, the sender MUST list that field name within the Connection header field. Some version of HTTP do not allow the Connection field
+When a field that's not Connection supplies control information for a connection, the sender MUST list that field name within the Connection header field. Some versions of HTTP do not allow the Connection field
 
 Intermediaries MUST parse a received Connection header field before forwarding, and remove any header/trailer field listed in Connection, including itself (or replace the Connection with something of its own)
 

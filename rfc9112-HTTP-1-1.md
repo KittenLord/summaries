@@ -12,13 +12,13 @@ HTTP/1.1 is defined by this document, RFC9110 and RFC9111
 
 ### 1.1. Requirements Notation
 
-RFC 2119 RFC8174
+RFC-2119 RFC-8174
 
 ### 1.2. Syntax Notation
 
 Originally ABNF, I'll use whatever I come up with
 
-'#' denotes a comma-separated list, analogous to '*'
+'#' denotes a comma-separated list, analogous to '\*'
 
 ## 2. Message
 
@@ -327,7 +327,7 @@ The chunked coding does not define any parameters. Their presence SHOULD be trea
 
 May be used for per-chunk metadata, like signature, hash, control information, whatever
 
-A recipient MUST ignore unrecognized chunk extensions. A server out to reasonably limit the total length of received chunk extensions, and respond with a 4xx if that limit is exceeded
+A recipient MUST ignore unrecognized chunk extensions. A server ought to reasonably limit the total length of received chunk extensions, and respond with a 4xx if that limit is exceeded
 
 #### 7.1.2. Chunked Trailer Section
 
@@ -395,15 +395,15 @@ A sender of TE MUST also send a "TE" connection option within the Connection hea
 
 ## 8. Handling Incomplete Messages
 
-A server that receives an incomplete, for any reason, message, MAY send an error repsonse prior to closing the connection
+A server that receives an incomplete, for any reason, message, MAY send an error response prior to closing the connection
 
 A client that receives such a message MUST record the message as incomplete.
 
 If a response terminated in the middle of the header section and the status code might rely on header fields, then the client cannot assume that meaning has been conveyed, and needs to repeat the request
 
-A chunked encoded messagy body is incomplete if the zero-sized chunk hasn't been received. A message that uses a valid Content-Length is incomplete if less octets have been received. A response that uses neither is terminated by closure of the connection and, if the header section was received in tact, is considered complete unless a connection error had occurred
+A chunked encoded message body is incomplete if the zero-sized chunk hasn't been received. A message that uses a valid Content-Length is incomplete if less octets have been received. A response that uses neither is terminated by closure of the connection and, if the header section was received in tact, is considered complete unless a connection error had occurred
 
-## 9. Connection Managemento
+## 9. Connection Management
 
 HTTP only presumes a reliable transport with in-order delivery of requests and corresponding in-order delivery of responses.
 
@@ -436,7 +436,7 @@ A client that does not support persistent connections MUST send the "close" conn
 
 Same (MUST) applies to the servers in every non-1xx response
 
-A client MAY send more requests on a persistent conneciton until it sends or receives "close" connection option or receives a HTTP/1.0 response without a "keep-alive" connection option
+A client MAY send more requests on a persistent connection until it sends or receives "close" connection option or receives a HTTP/1.0 response without a "keep-alive" connection option
 
 A server MUST either read the entire request message body or close the connection after sending its response. Client MUST do a similar thing with its requests
 
