@@ -367,11 +367,11 @@ tchar           ::= "!" | '#' | "$" | "%" | "&" | "'" | "*" | "+" | "-" | "." | 
 
 #### 5.6.3. Whitespace
 
-OWS - `(SP | HTAB)*`, optional (if for readability a sender SHOULD genereate OWS as a singular ' ', otherwise SHOULD NOT)
+`OWS ::= (SP | HTAB)*`, optional (if for readability a sender SHOULD generate OWS as a singular ' ', otherwise SHOULD NOT)
 
-RWS - `(SP | HTAB)+`, required (a sender SHOULD generate RWS as a single ' ')
+`RWS ::= (SP | HTAB)+`, required (a sender SHOULD generate RWS as a single ' ')
 
-BWS - `OWS`, bad (a sender MUST NOT generate BWS. A sender MUST parse for BWS and remove it (it may be there for historical reasons))
+`BWS ::= OWS`, bad (a sender MUST NOT generate BWS. A recipient MUST parse for BWS and remove it (it may be there for historical reasons))
 
 #### 5.6.4. Quoted Strings
 
@@ -486,7 +486,7 @@ When a message is forwarded by an intermediary, the protocol version is updated 
 
 A client SHOULD send the highest version it supports, where major version is no higher than the server's, if it is known. A client MUST NOT send a version it doesn't supprot.
 
-A client MAY send a lower request version if it is know that the server incorrectly implemented HTTP spec, but only after at least one normal request has been attempted.
+A client MAY send a lower request version if it is known that the server incorrectly implemented HTTP spec, but only after at least one normal request has been attempted.
 
 A server SHOULD send the highest version it supports, that has a major version less than or equal to the request's. A server MUST NOT send a version to which it is not conformant. A server can send a 505 (HTTP Version Not Supported) for any version to refuse the client's major version.
 
@@ -498,7 +498,7 @@ Fields in the header are "header fields" or "headers".
 
 ### 6.4. Content
 
-I'm not sure what they're saying here
+Content is message without transfer encoding
 
 #### 6.4.1. Content Semantics
 
@@ -539,9 +539,9 @@ Fields in the trailer section are "trailer fields" or "trailers". They may suppl
 
 Trailer fields ought to be processed and stored separately from the header fields to avoid contradicting message semantics known at the time the header was complete.
 
-#### 6.5.1. Limitations on User of Trailers
+#### 6.5.1. Limitations on Use of Trailers
 
-A trailer section is only possibly when supported by used HTTP version and enabled by explicit framing.
+A trailer section is only possible when supported by used HTTP version and enabled by explicit framing.
 
 A sender MUST NOT generate a trailer field unless the sender knows the corresponding header field name's definition parmits the field to be sent in trailers
 
@@ -604,7 +604,7 @@ A client needs to send enough URI components to identify the target resource.
 The target URI components, referred to as "request target", are sent within the message control data and the Host header field
 
 There are two exceptions:
-    - For CONNECT the request target is the host name and port number, seaprated by a ":"
+    - For CONNECT the request target is the host name and port number, separated by a ":"
     - For OPTIONS the request target can be simply "*"
 
 Above two forms MUST NOT be used with other methods
@@ -646,7 +646,7 @@ Otherwise, directly to the origin
 
 Once a request is received by a server and parsed sufficiently to determine the target URI, the server decides to process the request, forward it, redirect the client to a different source, respond with an error, or drop the connection.
 
-For example, if server match the information passed in the Host header, the server might decide to drop the connection, unless it comes from a trusted gateway as a simple mistake
+For example, if server differs from the information passed in the Host header, the server might decide to drop the connection, unless it comes from a trusted gateway as a simple mistake
 
 Unless the connection is from a trusted gateway, an origin server MUST reject a request if any scheme-specific requirements for the target URI are not met. A request for an "https" resource MUST be rejected unless it has been received over a connection that has been secured via a certificate valid for that target URI's origin
 
@@ -654,13 +654,13 @@ The 421 status code in a response indicates that the server deemed the request a
 
 ### 7.5. Response Correlation
 
-All responses, regardless of the status code, can be send at any time after a request is receievd, even if the request is not yet complete. Clients are not expected to wait any specific amount of time for a response, but may drop the connection after a reasonable amount of time without a response
+All responses, regardless of the status code, can be sent at any time after a request is received, even if the request is not yet complete. Clients are not expected to wait any specific amount of time for a response, but may drop the connection after a reasonable amount of time without a response
 
 ### 7.6. Message Forwarding
 
 Intermediaries are expected to forward messages even when protocol elements are not recognized
 
-An intermediary not acting as a tunnel MUST implement the connection header field, and exclude fields from being forwarded that are only intended for the incoming connection
+An intermediary not acting as a tunnel MUST implement the Connection header field, and exclude fields from being forwarded that are only intended for the incoming connection
 
 An intermediary MUST NOT forward a message to itself, unless it can somehow prevent an infinite loop
 
@@ -786,7 +786,7 @@ This spec only defines the protocol name "HTTP" - other protocol names ought to 
 The representation data is in format and encoding defined by the header fields, namely, Content-Type and Content-Encoding
 
 ```
-representation-data := Content-Encoding $ Content-Type data
+let representation-data = Content-Encoding $ Content-Type data
 ```
 
 ### 8.2. Representation Metadata
@@ -799,7 +799,7 @@ Content-Type indicates the media type of the associated representation. This def
 
 A sender that generates a message with content SHOULD generate a Content-Type header, unless the type is unknown to the sender. If Content-Type is not present, recipient MAY assume "application/octet-stream", or somehow determine the type.
 
-You should be careful when trying to decide the data type for yourself (especially when sniffing, and user should be able to disable sniffing, whatever that is)
+You should be careful when trying to decide the data type for yourself (especially when sniffing, and user should be able to disable sniffing, whatever that means)
 
 ```
 Content-Type ::= media-type
@@ -807,7 +807,7 @@ Content-Type ::= media-type
 
 #### 8.3.1. Media Type
 
-HTTP uses media types defined in RFC2046 (these are case-insensitive, but lowercase preferred)
+HTTP uses media types defined in RFC2046 (these are case-insensitive, lowercase preferred)
 
 ```
 media-type  ::= type "/" subtype parameters
@@ -815,7 +815,7 @@ type        ::= token
 subtype     ::= token
 ```
 
-Parameter values might or might not be case-sensitive, it's all very individual
+Parameter values might or might not be case-sensitive, it's all individual
 
 #### 8.3.2. Charset
 
@@ -827,13 +827,13 @@ A sender MUST generate only CRLF to represent line breaks between body parts
 
 ### 8.4. Content-Encoding
 
-Primarily used to indicate compression or whatever
+Primarily used to indicate compression and related
 
 ```
 Content-Encoding ::= content-coding#
 ```
 
-The sender that applied the encoding(s) MUST list them in the order in which they were applied. The coding named "identity" is reserved and SHOULD NOT be included.
+The sender that applied the encoding(s) MUST list them in the order in which they were applied. The coding named "identity" is reserved and SHOULD NOT be used here.
 
 If the media type includes an inherent encoding, it is not restated in Content-Encoding (unless it is applied once more outside of the media type definition)
 
@@ -857,6 +857,11 @@ The "deflate" coding is a "zlib" data format, uses a combination of LZ77 and Huf
 
 "gzip" - LZ77 coding with a 32-bit Cyclic Redundancy Check. A recipient SHOULD consider "x-gzip" to be equivalent to "gzip"
 
+NOTE: RFC-1950 RFC-1951 RFC-1952 are relevant for the last three
+
+NOTE: afaict, you can use deflate in gzip coding as well,
+not sure why this definition implies otherwise
+
 ### 8.5. Content-Language
 
 Content-Language header field describes the natural language(s) of the intended audience (!) for the representation
@@ -873,7 +878,7 @@ Content-Language MAY be applied to any media type
 
 #### 8.5.1. Language Tags
 
-Defined in RFC5646. Only languages that humans use, strictly not programming languages.
+Defined in RFC5646. Only languages that humans use, explicitly not programming languages.
 
 ```
 language-tag ::= // Language-Tag in RFC5646
@@ -889,7 +894,7 @@ Content-Length ::= DIGIT+
 
 A user agent SHOULD send Content-Length when the method defines a meaning for enclosed content and it is not sending Transfer-Encoding. For example, for a POST request a user sends Content-Length even if it is 0. A user agent SHOULD NOT send a Content-Length header if the request message isn't supposed to or doesn't have content.
 
-A server MAY send a Content-Length header in a response to a HEAD request. A server MUST NOT do so, if it wouldn't be equal for a response to a GET request.
+A server MAY send a Content-Length header in a response to a HEAD request. A server MUST NOT do so if it wouldn't be equal for a response to a GET request.
 
 A server MAY send a Content-Length header field in a 304 response to a conditional GET request. It MUST NOT do so, unless this number would be equal in a 200 response
 
@@ -927,6 +932,8 @@ A user agent that sends Content-Location in a request message is stating where i
 An origin server that receives a Content-Location MUST treat the information as transitory request context, rather than as metadata. An origin server MAY use that context for request processing or whatever. An origin server MUST NOT use such information to alter the request semantics.
 
 Example: if a client makes a PUT request, and the origin server accepts that PUT, the new state of the resource is expected to be with what was provided in the request. 
+
+NOTE: I'm very confused wtf this means
 
 ### 8.8. Validator Fields
 
@@ -987,7 +994,7 @@ or
 or
 
 - The validator is being compared by an intermediate cache to the validator stored in its cache entry, and
-- The cache entry includes a date... (copy-paste from above)
+- The cache entry includes a Date... (copy-paste from above)
 
 #### 8.8.3. ETag
 
@@ -1015,9 +1022,9 @@ An origin server SHOULD send an ETag if it can be reasonably and consistently de
 
 ##### 8.8.3.2. Comparison
 
-If both are strong, a simple string equality
+Strong comparison - both are strong, and equal strings
 
-Otherwise, a string comparison, but excluding the "W/"
+Weak comparison - just equal strings (excluding any "W/")
 
 ##### 8.8.3.3. Example: Entity Tags Varying on Content-Negotiated Resources
 
@@ -1060,7 +1067,7 @@ An origin server that receives an unrecognized/unimplemented method SHOULD respo
 
 A method is considered safe, if it is essentially read-only
 
-A server, of course, may do unsafe and mutating behaviour, but that is strictly not client's "fault" or will. Anyways, just be reasonable
+A server, of course, may do unsafe and mutating behaviour, but that is strictly not client's fault, will or responsibility. Anyways, just be reasonable
 
 GET, HEAD, OPTIONS, TRACE methods are safe
 
@@ -1145,7 +1152,7 @@ The representations of the target resource might or might not be actually destro
 If a DELETE is successfully applied, the origin server SHOULD send
 
 - a 202 if the action will likely succeed but has not yet been enacted
-- a 204 if it has been enacted
+- a 204 if it has been enacted and no extra information
 - a 200 if it has been enacted and there's extra information
 
 A client SHOULD NOT generate content in a DELETE, an origin server SHOULD NOT rely on private agreements to receive such content (same as GET and HEAD)
@@ -1459,7 +1466,7 @@ Server can communicate information after client's authentication credentials hav
 
 Can be used in any HTTP response. Semantics are defined by the authentication scheme indicated by the Authorization header of the corresponding request
 
-A proxy must not (MUST NOT? not specified) modify
+A proxy must not (MUST NOT? not capitalized in the original) modify
 
 Can be sent as a trailer field if the authentication scheme explicitly allows
 
@@ -1640,9 +1647,9 @@ Indicates the set of natural languages that are preferred in the response (view 
 
 Each can have quality value
 
-Users should, along with assigning decreasing qvalues, list items in decreasing order, due to some erroneous implementations (also view RFC4647 Section 2.3.)
+Users should, along with assigning decreasing qvalues, list items in decreasing order, due to some erroneous implementations (also view RFC-4647 Section 2.3.)
 
-Language matching - RFC4647 Section 3
+Language matching - RFC-4647 Section 3
 
 User agent's language selection should be configurable. A user agent now allowing configuration MUST NOT send an Accept-Language
 
@@ -1801,7 +1808,7 @@ A server MUST evaluate as per Section 13.2.
 
 Evaluating (with HTTP-date)
 
-1. If validator is not strong (Section 8.8.2.2.), the condition is false
+1. If validator is not strong (Section 8.8.2.2), the condition is false
 2. If matches exactly the Last-Modified for the selected representation, true
 3. Otherwise, false
 
@@ -1907,7 +1914,7 @@ suffix-range - last N bytes (N > 0), or the whole representation if N >= length
 For a GET request, a valid bytes is satisfiable if it's either
 
 - an int-range with a first-pos < length
-- a fuxxix-range with a non-zero suffix-length
+- a suffix-range with a non-zero suffix-length
 
 Recipients MUST ancitipate potentially large decimal numerals
 
@@ -1972,7 +1979,7 @@ Sent in a single part 206 response to indicate the range it has in content, sent
 
 If a 206 response with Content-Range has unit that recipient does not understand it MUST NOT attempt to recombine it with a stored representation. A proxy SHOULD forward such message downstream
 
-Content-Range might be used for a partial PUT (Section 14.5.). A server MUST ignore a Content-Range if it's not defined for the method
+Content-Range might be used for a partial PUT (Section 14.5). A server MUST ignore a Content-Range if it's not defined for the method
 
 For bytes, a sender SHOULD indicate the complete length, unless it is unknown or difficult to determine, indicated by "\*"
 
@@ -2151,7 +2158,7 @@ If the whole representation has been recombined, the client MUST treat it as it 
 
 Indicates that further action needs to be taken by the user agent to fulfill the request
 
-Server types
+Redirect types
 
 1. Resource might be available at a different URI (Location)
 2. Choice among resources capable of representing this resource
@@ -2237,7 +2244,7 @@ Deprecated, reserved
 
 Target resource resides temporarily under a new URI, if user automatically redirects the method MUST NOT change
 
-The server SHOULD generate a Location. THe user MAY use it for automatic redirection. Content usually contains a hyperlink to the different URI(s)
+The server SHOULD generate a Location. The user MAY use it for automatic redirection. Content usually contains a hyperlink to the different URI(s)
 
 #### 15.4.9. 308 Permanent Redirect
 
@@ -2327,7 +2334,7 @@ If the condition is temporary, the server SHOULD generate a Retry-After
 
 #### 15.5.15. 414 URI Too Long
 
-Refuse, because URI is too long
+Refuse, because target URI is too long
 
 Cacheable, unless otherwise indicated
 
@@ -2356,8 +2363,6 @@ Expectation in the Expect header could not be met
 #### 15.5.19. 418 I'm a teapot
 
 Any attempt to brew coffee with a teapot should result in the error code "418 I'm a teapot". The resulting entity body MAY be short and stout.
-
-Unused, reserved
 
 #### 15.5.20. 421 Misdirected Request
 
