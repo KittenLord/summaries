@@ -80,7 +80,7 @@ request-line    ::= method SP request-target SP HTTP-version
 
 Recipients may MAY parse SP as if it were RWS (except for CRLF), where RWS contains SP, HTAB, VT, FF, bare CR
 
-A server that receives a method longer than any that it implements SHOULD respond with 501. Similar with request-line, but MUST respond with 414.
+A server that receives a method longer than any that it implements SHOULD respond with 501. Similar with request-target, but MUST respond with 414.
 
 It is recommended to support request-line at least 8000 octets long.
 
